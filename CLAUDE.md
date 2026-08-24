@@ -1,4 +1,4 @@
-# HakkaVibe — Agent 工作流程
+# hakka-vibe — Agent 工作流程
 
 這個 repo 收錄了 [mattpocock/skills](https://github.com/mattpocock/skills) 的 skills，放在 `.claude/skills/`。
 Code agent 在對應階段**請主動使用**下列 skills，不要憑感覺直接開工。
@@ -35,6 +35,16 @@ Code agent 在對應階段**請主動使用**下列 skills，不要憑感覺直�
 
 ## 前置設定
 
-第一次使用 `to-spec`、`to-tickets`、`code-review` 之前，先跑一次 `/setup-matt-pocock-skills`，它會把 issue tracker 與 domain 文件設定寫到 `docs/agents/`。少了這些檔案，那三個 skill 會直接要你去跑 setup。
+`/setup-matt-pocock-skills` 已經跑過，設定寫在 `docs/agents/`，見下方「Agent skills」。要換 issue tracker（例如改用 GitHub issues）才需要重跑。
 
 各 skill 的來源、版本與更新方式見 `.claude/skills/README.md`。
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `docs/issues/`, committed to the repo. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at the root, ADRs in `docs/adr/`. See `docs/agents/domain.md`.
