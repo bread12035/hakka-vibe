@@ -33,6 +33,16 @@ Code agent 在對應階段**請主動使用**下列 skills，不要憑感覺直�
 - `/code-review`：審查從某個固定點（commit / branch / tag / merge-base）到 `HEAD` 的 diff，兩條軸線並行跑子代理：Standards（是否符合本 repo 規範）與 Spec（是否忠實實作原始 issue）。每次要合併前跑。
 - `/improve-codebase-architecture`：週期性做。掃 codebase 找 shallow module、出 HTML 報告，挑一項後接著 grilling 深入。
 
+## 寫 agent code 時的優先序
+
+`nooa-design` 與 `codebase-design` 會同時觸發。分工是**分層的**：
+
+1. **結構聽 `nooa-design`** —— class 邊界、state 放 typed field、prompt 走外部 registry、model-facing 邊界型別化。
+2. **判準聽 `codebase-design`** —— 方法該不該存在、介面能不能再窄、seam 放哪。agent class 不豁免 deletion test。
+3. **`nooa-design` 要斷言的 typed field，必須同時是介面的一部分**（公開且文件化）。內部記帳欄位不得被測試斷言 —— 那是 `tdd` 的 side channel 反模式。
+
+理由與被否決的方案見 [ADR-0001](docs/adr/0001-nooa-design-vs-codebase-design.md)。
+
 ## 前置設定
 
 `/setup-matt-pocock-skills` 已經跑過，設定寫在 `docs/agents/`，見下方「Agent skills」。要換 issue tracker（例如改用 GitHub issues）才需要重跑。

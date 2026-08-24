@@ -1,6 +1,15 @@
-# Skills（來自 mattpocock/skills）
+# Skills
 
-本資料夾放的是給 code agent 參考的 skills，內容原封不動取自 [mattpocock/skills](https://github.com/mattpocock/skills)。
+本資料夾放的是給 code agent 參考的 skills，來源有兩個：
+
+- **`mattpocock/skills`** —— 12 個，四階段工作流程的本體。見下方「來自 mattpocock/skills」。
+- **`nooa-design`** —— 1 個，自訂 skill。見最後一節。
+
+---
+
+## 來自 mattpocock/skills
+
+內容原封不動取自 [mattpocock/skills](https://github.com/mattpocock/skills)。
 
 - 上游 repo：https://github.com/mattpocock/skills
 - 上游版本：`v1.2.3`
@@ -9,9 +18,9 @@
 
 上游把 skills 分成 `skills/engineering/`、`skills/productivity/` 等分類；這裡攤平成 `.claude/skills/<name>/`，Claude Code 才能自動載入。每個 skill 內部的相對連結（例如 `tdd/tests.md`）都在自己的資料夾內，攤平不影響。
 
-## 收錄的 skills
+### 收錄的 skills
 
-### 主要（本次指定要用的）
+#### 主要（本次指定要用的）
 
 | Skill | 用途 |
 | --- | --- |
@@ -26,7 +35,7 @@
 
 > 註：指定清單裡的 `grill-with-doc` 在上游叫 `grill-with-docs`；`implementation` 對應的是 `implement`（上游沒有叫 `implementation` 的 skill）。
 
-### 相依（上面那些 skill 會呼叫，所以一起收錄）
+#### 相依（上面那些 skill 會呼叫，所以一起收錄）
 
 | Skill | 被誰用到 |
 | --- | --- |
@@ -37,7 +46,7 @@
 
 沒有收錄上游其他 skills（`triage`、`research`、`prototype`、`wizard` 等）。要補的話，從上游同一個 commit 複製對應資料夾進來即可，記得一併確認它有沒有呼叫別的 skill。
 
-## 使用前置作業
+### 使用前置作業
 
 `to-spec`、`to-tickets`、`code-review` 都預期 repo 裡有 `docs/agents/issue-tracker.md`。第一次使用前先跑：
 
@@ -47,7 +56,7 @@
 
 它會問你 issue tracker（GitHub / GitLab / 本地 markdown）、triage label 詞彙、domain 文件擺放位置，然後把設定寫進 `docs/agents/`。
 
-## 更新方式
+### 更新方式
 
 ```bash
 git clone --depth 1 https://github.com/mattpocock/skills.git /tmp/mp-skills
@@ -55,3 +64,21 @@ git clone --depth 1 https://github.com/mattpocock/skills.git /tmp/mp-skills
 ```
 
 更新後記得把本檔案開頭的上游 commit 一併改掉。
+
+---
+
+## nooa-design
+
+NVIDIA NOOA（Object-Oriented Agents）架構規則，寫 agent code 時用。**這不是 mattpocock 的 skill**，是使用者在 Claude web 自訂並註冊的（skill id `skill_011Wojs23A4djh6CNJSAJ4Fn`，`source: custom`），從個人帳號的 `~/.claude/skills/synced/nooa-design/` 複製進來，內容逐檔比對一致。
+
+複製進 repo 的用意是讓協作者與 CI agent 也讀得到 —— 帳號層的 synced skills 只有註冊者本人拿得到，clone 這個 repo 的人看不見。
+
+**代價是這裡有兩份。** 在 web 改了原版之後，repo 這份不會跟著動，要手動再複製一次。同名 skill 並存時，專案層（`<repo>/.claude/skills/`）會蓋過個人層，所以註冊者本人在這個 repo 底下讀到的是 repo 這份。
+
+上游來源（NVIDIA，非本 repo 內容）：
+
+- Blog: https://developer.nvidia.com/blog/six-agent-harness-capabilities-for-higher-model-performance/
+- Code: https://github.com/NVIDIA-NeMo/labs-OO-Agents （Apache 2.0）
+- Paper: arXiv 2607.20709
+
+它跟 `codebase-design` 的分工規則見 [ADR-0001](../../docs/adr/0001-nooa-design-vs-codebase-design.md)。
