@@ -9,7 +9,7 @@ from pathlib import Path
 
 from hakka_vibe.calibration import MINIMUM_TURNS, calibrate
 from hakka_vibe.fixture import fixture_fingerprint, generate_fixture
-from hakka_vibe.run_record import RunRecord, read_run_record, write_run_record
+from hakka_vibe.run_record import Call, RunRecord, read_run_record, write_run_record
 
 USAGE = {
     "input_tokens": 10,
@@ -26,7 +26,7 @@ def record_of(turns: int) -> RunRecord:
         arm="6a",
         run=1,
         model="claude-opus-5",
-        calls=tuple(USAGE for _ in range(turns)),
+        calls=tuple(Call(model="claude-opus-5", usage=USAGE) for _ in range(turns)),
         passed=True,
     )
 
@@ -73,7 +73,7 @@ def test_a_run_record_carries_which_fixture_it_was_measured_on(tmp_path: Path) -
         arm="6a",
         run=1,
         model="claude-opus-5",
-        calls=(USAGE,),
+        calls=(Call(model="claude-opus-5", usage=USAGE),),
         fixture=fixture_fingerprint(fixture.root),
     )
 

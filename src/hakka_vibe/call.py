@@ -8,7 +8,7 @@ from typing import Literal
 
 from anthropic import Anthropic
 
-from hakka_vibe.run_record import RunRecord
+from hakka_vibe.run_record import Call, RunRecord
 
 CacheTtl = Literal["5m", "1h"]
 
@@ -52,5 +52,5 @@ def record_one_call(
         arm=arm,
         run=run,
         model=model,
-        calls=(response.usage.model_dump(),),
+        calls=(Call(model=model, usage=response.usage.model_dump()),),
     )

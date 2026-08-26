@@ -12,6 +12,7 @@ import pytest
 
 from hakka_vibe.cost import TokenCounts
 from hakka_vibe.run_record import (
+    Call,
     RunRecord,
     UsageFieldMissing,
     read_run_record,
@@ -53,12 +54,17 @@ def test_a_stored_run_record_keeps_the_raw_usage_verbatim(tmp_path: Path) -> Non
     # away the answer to the next question and cost a re-run of every arm.
     usage = dict(OBSERVED_USAGE, iterations=[{"input_tokens": 2, "output_tokens": 971}])
     record = RunRecord(
-        experiment="6", arm="6a", run=1, model="claude-opus-5", passed=True, calls=(usage,)
+        experiment="6",
+        arm="6a",
+        run=1,
+        model="claude-opus-5",
+        passed=True,
+        calls=(Call(model="claude-opus-5", usage=usage),),
     )
 
     path = write_run_record(record, root=tmp_path)
 
-    assert read_run_record(path).calls == (usage,)
+    assert read_run_record(path).calls == (Call(model="claude-opus-5", usage=usage),)
 
 
 def test_run_records_are_filed_under_their_experiment_and_arm(tmp_path: Path) -> None:
@@ -68,7 +74,7 @@ def test_run_records_are_filed_under_their_experiment_and_arm(tmp_path: Path) ->
         run=2,
         model="claude-opus-5",
         passed=False,
-        calls=(OBSERVED_USAGE,),
+        calls=(Call(model="claude-opus-5", usage=OBSERVED_USAGE),),
     )
 
     path = write_run_record(record, root=tmp_path)
@@ -83,7 +89,7 @@ def test_a_run_record_prices_itself_from_its_usage() -> None:
         run=1,
         model="claude-opus-5",
         passed=True,
-        calls=(OBSERVED_USAGE,),
+        calls=(Call(model="claude-opus-5", usage=OBSERVED_USAGE),),
     )
 
     #   input          2 tok * $5.00/MTok  = $0.000010
@@ -123,7 +129,10 @@ def test_a_run_covers_every_call_it_took() -> None:
         arm="6a",
         run=1,
         model="claude-opus-5",
-        calls=(OBSERVED_USAGE, OBSERVED_USAGE),
+        calls=(
+            Call(model="claude-opus-5", usage=OBSERVED_USAGE),
+            Call(model="claude-opus-5", usage=OBSERVED_USAGE),
+        ),
     )
 
     assert record.tokens.output == 971 * 2

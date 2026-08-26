@@ -11,10 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hakka_vibe.cost import Cost, TokenCounts, cost_of
+from hakka_vibe.cost import ZERO_COST, Cost, TokenCounts, cost_of
 
 __all__ = [
     "DEFAULT_RESULTS_ROOT",
+    "Call",
     "RunRecord",
     "read_run_record",
     "token_counts_from_usage",
@@ -77,6 +78,28 @@ def token_counts_from_usage(usage: Mapping[str, Any]) -> TokenCounts:
 
 
 @dataclass(frozen=True)
+class Call:
+    """One call's raw usage and the model that produced it.
+
+    Priced per call rather than once for the whole run: a Claude Code session
+    can switch models mid-conversation — confirmed on this project's own
+    transcripts — and pricing a mixed run at one model over- or undercharges
+    whichever calls ran on the other one.
+    """
+
+    model: str
+    usage: Mapping[str, Any]
+
+    @property
+    def tokens(self) -> TokenCounts:
+        return token_counts_from_usage(self.usage)
+
+    @property
+    def cost(self) -> Cost:
+        return cost_of(self.tokens, model=self.model)
+
+
+@dataclass(frozen=True)
 class RunRecord:
     """One run of one arm: what it was, whether it passed, and what it cost."""
 
@@ -84,8 +107,10 @@ class RunRecord:
     arm: str
     run: int
     model: str
-    calls: tuple[Mapping[str, Any], ...]
-    """Raw usage for every call the run took, in order, verbatim.
+    """The model this run was configured for. Reporting label, not the pricing
+    input — each call carries and is priced at its own model."""
+    calls: tuple[Call, ...]
+    """Every call the run took, in order, verbatim.
 
     A run is a whole task, so it spans many calls. They are kept separately
     because summing before storing loses where in a task the cost went.
@@ -104,13 +129,16 @@ class RunRecord:
     @property
     def tokens(self) -> TokenCounts:
         total = TokenCounts()
-        for usage in self.calls:
-            total = total + token_counts_from_usage(usage)
+        for call in self.calls:
+            total = total + call.tokens
         return total
 
     @property
     def cost(self) -> Cost:
-        return cost_of(self.tokens, model=self.model)
+        total = ZERO_COST
+        for call in self.calls:
+            total = total + call.cost
+        return total
 
 
 def write_run_record(record: RunRecord, *, root: Path = DEFAULT_RESULTS_ROOT) -> Path:
@@ -131,7 +159,7 @@ def write_run_record(record: RunRecord, *, root: Path = DEFAULT_RESULTS_ROOT) ->
                 "model": record.model,
                 "passed": record.passed,
                 "fixture": record.fixture,
-                "calls": list(record.calls),
+                "calls": [{"model": call.model, "usage": call.usage} for call in record.calls],
             },
             indent=2,
             sort_keys=True,
@@ -149,5 +177,5 @@ def read_run_record(path: Path) -> RunRecord:
         model=stored["model"],
         passed=stored["passed"],
         fixture=stored["fixture"],
-        calls=tuple(stored["calls"]),
+        calls=tuple(Call(model=c["model"], usage=c["usage"]) for c in stored["calls"]),
     )

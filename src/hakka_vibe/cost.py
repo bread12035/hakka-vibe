@@ -46,6 +46,15 @@ class Cost:
     cache_write_5m: Decimal
     cache_write_1h: Decimal
 
+    def __add__(self, other: "Cost") -> "Cost":
+        return Cost(
+            input=self.input + other.input,
+            output=self.output + other.output,
+            cache_read=self.cache_read + other.cache_read,
+            cache_write_5m=self.cache_write_5m + other.cache_write_5m,
+            cache_write_1h=self.cache_write_1h + other.cache_write_1h,
+        )
+
     @property
     def total(self) -> Decimal:
         return (
@@ -59,6 +68,14 @@ _USD_PER_MTOK = {
     "claude-sonnet-5": (Decimal("2.00"), Decimal("10.00")),
     "claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
 }
+
+ZERO_COST = Cost(
+    input=Decimal(0),
+    output=Decimal(0),
+    cache_read=Decimal(0),
+    cache_write_5m=Decimal(0),
+    cache_write_1h=Decimal(0),
+)
 
 _MTOK = Decimal(1_000_000)
 

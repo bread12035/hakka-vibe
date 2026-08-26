@@ -27,7 +27,7 @@ Effort = Literal["low", "medium", "high", "xhigh", "max"]
 DEFAULT_EFFORT: Effort = "high"
 """Anthropic's own default, used whenever an arm does not vary effort."""
 from hakka_vibe.prompts import PromptSet
-from hakka_vibe.run_record import RunRecord
+from hakka_vibe.run_record import Call, RunRecord
 
 _JSON_TYPES = {str: "string", int: "integer", bool: "boolean"}
 
@@ -83,7 +83,7 @@ class FixerAgent:
     turns_taken: int = 0
     """How many model turns this run has spent."""
 
-    calls: list[dict[str, Any]] = field(default_factory=list)
+    calls: list[Call] = field(default_factory=list)
     """Raw usage from every call, in order."""
 
     # ── capabilities the model can call ──────────────────────────────────────
@@ -183,7 +183,7 @@ class FixerAgent:
                 messages=messages,
             )
             self.turns_taken += 1
-            self.calls.append(response.usage.model_dump())
+            self.calls.append(Call(model=self.model, usage=response.usage.model_dump()))
 
             requests = [block for block in response.content if block.type == "tool_use"]
             if not requests:

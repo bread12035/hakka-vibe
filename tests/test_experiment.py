@@ -8,7 +8,7 @@ tests, because every execution is billable.
 from decimal import Decimal
 
 from hakka_vibe.experiment import RUNS_PER_ARM, summarise
-from hakka_vibe.run_record import RunRecord
+from hakka_vibe.run_record import Call, RunRecord
 
 
 def record_costing(output_tokens: int, *, passed: bool = True, run: int = 1) -> RunRecord:
@@ -18,13 +18,16 @@ def record_costing(output_tokens: int, *, passed: bool = True, run: int = 1) -> 
         run=run,
         model="claude-opus-5",
         calls=(
-            {
-                "input_tokens": 0,
-                "output_tokens": output_tokens,
-                "output_tokens_details": None,
-                "cache_read_input_tokens": 0,
-                "cache_creation": None,
-            },
+            Call(
+                model="claude-opus-5",
+                usage={
+                    "input_tokens": 0,
+                    "output_tokens": output_tokens,
+                    "output_tokens_details": None,
+                    "cache_read_input_tokens": 0,
+                    "cache_creation": None,
+                },
+            ),
         ),
         passed=passed,
     )
