@@ -100,3 +100,23 @@ def test_a_briefing_is_folded_into_the_initial_task_message() -> None:
 
     assert "stage_2.py adds an off-by-one." in briefed.initial_task_message_for_test()
     assert agent().briefing == ""
+
+
+def test_a_plan_is_folded_in_after_the_briefing() -> None:
+    # Experiment 6e/6f: the plan should reach the first turn the same way the
+    # briefing does — composed in, not requiring the loop to re-fetch it.
+    task = agent(briefing="stage_2.py looks suspicious.").initial_task_message_for_test(
+        plan="1. Read stage_2.py\n2. Compare thresholds\n3. Run tests"
+    )
+
+    assert "stage_2.py looks suspicious." in task
+    assert "1. Read stage_2.py" in task
+    assert task.index("stage_2.py looks suspicious.") < task.index("1. Read stage_2.py")
+
+
+def test_with_no_plan_the_task_message_is_unaffected() -> None:
+    assert "Follow this plan" not in agent().initial_task_message_for_test()
+
+
+def test_workflow_defaults_to_off() -> None:
+    assert agent().workflow is False

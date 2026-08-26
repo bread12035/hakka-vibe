@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# fresh_copy_of() writes hidden per-run workspaces next to the fixture it copies
+fixtures/.*-*

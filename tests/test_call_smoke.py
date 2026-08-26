@@ -198,3 +198,25 @@ def test_the_subagent_architecture_experiment_runs_all_three_arms(tmp_path: Path
     assert set(summaries) == {mode.value for mode in DelegationMode}
     for summary in summaries.values():
         assert summary.runs == 3
+
+
+def test_the_workflow_decomposition_experiment_runs_both_arms(tmp_path: Path) -> None:
+    import shutil
+
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiments.workflow_decomposition import (
+        ARMS,
+        run_workflow_decomposition_experiment,
+    )
+
+    fixture = tmp_path / "pipeline"
+    shutil.copytree("fixtures/pipeline", fixture)
+
+    summaries = run_workflow_decomposition_experiment(
+        Anthropic(), fixture=fixture, model="claude-opus-5", results_root=tmp_path / "results"
+    )
+
+    assert set(summaries) == set(ARMS)
+    for summary in summaries.values():
+        assert summary.runs == 3

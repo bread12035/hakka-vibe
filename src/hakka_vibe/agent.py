@@ -70,6 +70,9 @@ class FixerAgent:
     briefing: str = ""
     """Experiment 3: findings a subagent already investigated, folded into the
     initial task message so the orchestrator does not re-derive them itself."""
+    workflow: bool = False
+    """Experiment 6e/6f: get a plan first, then work the fix loop against it,
+    instead of starting the loop with only the bare task."""
 
     turns_taken: int = 0
     """How many model turns this run has spent."""
@@ -151,16 +154,46 @@ class FixerAgent:
         """
         return self._system_blocks()
 
-    def initial_task_message_for_test(self) -> str:
-        """Expose the assembled initial task message for the no-call briefing test."""
+    def _assemble_task(self, *, plan: str | None = None) -> str:
+        """Compose the initial task message from the task prompt, an optional
+        briefing (experiment 3), and an optional plan (experiment 6e/6f).
+
+        Pure given its inputs — obtaining the plan needs a call, but how it
+        gets folded in does not, which is what makes this composition testable
+        on its own.
+        """
         task = self.prompts.render("fixer.task", workspace=self.workspace)
         if self.briefing:
             task = f"{task}\n\nA colleague already looked into this and reported:\n{self.briefing}"
+        if plan:
+            task = f"{task}\n\nFollow this plan step by step:\n{plan}"
         return task
+
+    def initial_task_message_for_test(self, *, plan: str | None = None) -> str:
+        """Expose the assembled initial task message for the no-call composition tests."""
+        return self._assemble_task(plan=plan)
 
     def tools_for_test(self) -> list[ToolParam]:
         """Expose the assembled tool list for the no-call arm-configuration tests."""
         return self._tools()
+
+    def plan(self) -> str:
+        """One call: a short step-by-step plan for fixing the failing test.
+
+        Recorded as its own call in self.calls, at the same effort as every
+        other call this run makes — the hypothesis under test is that a single
+        planning pass lets the following turns think less, not that planning
+        itself should be cheap.
+        """
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=DEFAULT_MAX_TOKENS,
+            system=self._system_blocks(),
+            output_config={"effort": self.effort},
+            messages=[{"role": "user", "content": self.prompts.render("fixer.plan")}],
+        )
+        self.calls.append(Call(model=self.model, usage=response.usage.model_dump()))
+        return "\n".join(block.text for block in response.content if block.type == "text")
 
     def _tools(self) -> list[Any]:
         core = [
@@ -192,10 +225,10 @@ class FixerAgent:
 
     def fix(self, *, experiment: str, arm: str, run: int) -> RunRecord:
         """Work the task until the suite passes or the turn budget runs out."""
-        task = self.prompts.render("fixer.task", workspace=self.workspace)
-        if self.briefing:
-            task = f"{task}\n\nA colleague already looked into this and reported:\n{self.briefing}"
-        messages: list[MessageParam] = [{"role": "user", "content": task}]
+        plan = self.plan() if self.workflow else None
+        messages: list[MessageParam] = [
+            {"role": "user", "content": self._assemble_task(plan=plan)}
+        ]
 
         while self.turns_taken < self.max_turns:
             create = (
