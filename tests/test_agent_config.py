@@ -91,3 +91,12 @@ def test_arm_4b_defers_every_decoy_behind_tool_search() -> None:
     )  # the task's own tools stay ready
     assert len(decoys) == 30
     assert all(t.get("defer_loading") for t in decoys)
+
+
+def test_a_briefing_is_folded_into_the_initial_task_message() -> None:
+    # Experiment 3: the orchestrator should not re-derive what a subagent
+    # already investigated, so the finding must actually reach the first turn.
+    briefed = agent(briefing="stage_2.py adds an off-by-one.")
+
+    assert "stage_2.py adds an off-by-one." in briefed.initial_task_message_for_test()
+    assert agent().briefing == ""

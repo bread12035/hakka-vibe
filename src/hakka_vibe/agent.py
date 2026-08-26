@@ -8,7 +8,6 @@ The agent gets no seam of its own. Whether it worked is the fixture's own pytest
 exit code, and testing past that would mean asserting on model output.
 """
 
-import inspect
 import os
 import subprocess
 import sys
@@ -24,37 +23,13 @@ from hakka_vibe.decoy_tools import generate_decoy_tools
 from hakka_vibe.fixture import fixture_fingerprint
 from hakka_vibe.output_style import OutputStyle
 from hakka_vibe.prompt_layout import PromptLayout, assemble_messages
+from hakka_vibe.tool_schema import schema_of
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 DEFAULT_EFFORT: Effort = "high"
 """Anthropic's own default, used whenever an arm does not vary effort."""
 from hakka_vibe.prompts import PromptSet
 from hakka_vibe.run_record import Call, RunRecord
-
-_JSON_TYPES = {str: "string", int: "integer", bool: "boolean"}
-
-
-def _schema_of(method: Any) -> ToolParam:
-    """Derive a tool schema from a method's signature.
-
-    Derived rather than hand-written so the schema cannot drift away from the
-    code it describes: a hand-maintained copy silently stops matching.
-    """
-    signature = inspect.signature(method)
-    hints = inspect.get_annotations(method, eval_str=True)
-    properties = {
-        name: {"type": _JSON_TYPES[hints[name]]} for name in signature.parameters if name != "self"
-    }
-    return ToolParam(
-        name=method.__name__,
-        description=inspect.getdoc(method) or "",
-        input_schema={
-            "type": "object",
-            "properties": properties,
-            "required": list(properties),
-            "additionalProperties": False,
-        },
-    )
 
 
 @dataclass
@@ -92,6 +67,9 @@ class FixerAgent:
     """Arm 4b: defer the decoys behind tool search rather than exposing them
     directly. The task's own four capabilities stay non-deferred — they are
     needed on every turn, not something worth searching for."""
+    briefing: str = ""
+    """Experiment 3: findings a subagent already investigated, folded into the
+    initial task message so the orchestrator does not re-derive them itself."""
 
     turns_taken: int = 0
     """How many model turns this run has spent."""
@@ -173,16 +151,23 @@ class FixerAgent:
         """
         return self._system_blocks()
 
+    def initial_task_message_for_test(self) -> str:
+        """Expose the assembled initial task message for the no-call briefing test."""
+        task = self.prompts.render("fixer.task", workspace=self.workspace)
+        if self.briefing:
+            task = f"{task}\n\nA colleague already looked into this and reported:\n{self.briefing}"
+        return task
+
     def tools_for_test(self) -> list[ToolParam]:
         """Expose the assembled tool list for the no-call arm-configuration tests."""
         return self._tools()
 
     def _tools(self) -> list[Any]:
         core = [
-            _schema_of(type(self).list_files),
-            _schema_of(type(self).read_file),
-            _schema_of(type(self).write_file),
-            _schema_of(type(self).run_tests),
+            schema_of(type(self).list_files),
+            schema_of(type(self).read_file),
+            schema_of(type(self).write_file),
+            schema_of(type(self).run_tests),
         ]
         if self.decoy_tools == 0:
             return core
@@ -207,12 +192,10 @@ class FixerAgent:
 
     def fix(self, *, experiment: str, arm: str, run: int) -> RunRecord:
         """Work the task until the suite passes or the turn budget runs out."""
-        messages: list[MessageParam] = [
-            {
-                "role": "user",
-                "content": self.prompts.render("fixer.task", workspace=self.workspace),
-            }
-        ]
+        task = self.prompts.render("fixer.task", workspace=self.workspace)
+        if self.briefing:
+            task = f"{task}\n\nA colleague already looked into this and reported:\n{self.briefing}"
+        messages: list[MessageParam] = [{"role": "user", "content": task}]
 
         while self.turns_taken < self.max_turns:
             create = (

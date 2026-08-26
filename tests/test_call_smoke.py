@@ -178,3 +178,23 @@ def test_the_tool_search_experiment_runs_both_arms(tmp_path: Path) -> None:
     assert set(summaries) == set(ARMS)
     for summary in summaries.values():
         assert summary.runs == 3
+
+
+def test_the_subagent_architecture_experiment_runs_all_three_arms(tmp_path: Path) -> None:
+    import shutil
+
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiments.subagent_architecture import run_subagent_experiment
+    from hakka_vibe.subagent import DelegationMode
+
+    fixture = tmp_path / "pipeline"
+    shutil.copytree("fixtures/pipeline", fixture)
+
+    summaries = run_subagent_experiment(
+        Anthropic(), fixture=fixture, results_root=tmp_path / "results"
+    )
+
+    assert set(summaries) == {mode.value for mode in DelegationMode}
+    for summary in summaries.values():
+        assert summary.runs == 3
