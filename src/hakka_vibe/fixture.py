@@ -106,9 +106,11 @@ def _stage_result(root: Path, index: int) -> int:
             sys.executable,
             "-B",
             "-c",
-            "import sys; sys.path.insert(0, 'src'); "
-            f"from pipeline.stage_{index} import refine; "
-            f"print(refine({PIPELINE_INPUT}))",
+            (
+                "import sys; sys.path.insert(0, 'src'); "
+                f"from pipeline.stage_{index} import refine; "
+                f"print(refine({PIPELINE_INPUT}))"
+            ),
         ],
         cwd=root,
         capture_output=True,

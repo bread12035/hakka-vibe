@@ -18,6 +18,7 @@ def run_fixture_tests(root: Path) -> subprocess.CompletedProcess[str]:
         cwd=root,
         capture_output=True,
         text=True,
+        check=False,  # a red fixture is the expected outcome in half these tests
     )
 
 
