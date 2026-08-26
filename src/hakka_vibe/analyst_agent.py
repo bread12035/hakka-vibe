@@ -69,7 +69,9 @@ class AnalystAgent:
             )
         ]
 
-    def analyse(self, *, task_context: str, experiment: str, arm: str, run: int) -> tuple[RunRecord, str]:
+    def analyse(
+        self, *, task_context: str, experiment: str, arm: str, run: int
+    ) -> tuple[RunRecord, str]:
         """Work the question until an answer line appears or the turn budget runs out.
 
         Returns the run record and the agent's final text, for the caller to
@@ -97,9 +99,7 @@ class AnalystAgent:
             self.turns_taken += 1
             self.calls.append(Call(model=self.model, usage=response.usage.model_dump()))
 
-            final_text = "\n".join(
-                block.text for block in response.content if block.type == "text"
-            )
+            final_text = "\n".join(block.text for block in response.content if block.type == "text")
             requests = [block for block in response.content if block.type == "tool_use"]
             if not requests:
                 break

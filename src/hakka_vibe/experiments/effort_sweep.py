@@ -33,10 +33,12 @@ def run_effort_sweep(
 
         def agent_for(run: int, *, effort: Effort = effort, arm: str = arm) -> FixerAgent:
             return FixerAgent(
-                client=client, workspace=fresh_copy_of(fixture, arm, run), model=model, effort=effort
+                client=client,
+                workspace=fresh_copy_of(fixture, arm, run),
+                model=model,
+                effort=effort,
             )
 
         kwargs = {"results_root": results_root} if results_root is not None else {}
         summaries[arm] = run_arm(experiment="6", arm=arm, agent_for=agent_for, **kwargs)
     return summaries
-

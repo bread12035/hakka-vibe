@@ -72,13 +72,18 @@ def parse_answer(text: str) -> TopCustomer | None:
     return TopCustomer(customer_id=int(match.group(1)), total=float(match.group(2)))
 
 
-def matches_expected(answer: TopCustomer, expected: TopCustomer, *, tolerance: float = 0.01) -> bool:
+def matches_expected(
+    answer: TopCustomer, expected: TopCustomer, *, tolerance: float = 0.01
+) -> bool:
     """Whether an answer counts as correct: right customer, total within a cent.
 
     The tolerance absorbs floating-point rounding in whatever method the agent
     used, not disagreement about which customer or how much.
     """
-    return answer.customer_id == expected.customer_id and abs(answer.total - expected.total) <= tolerance
+    return (
+        answer.customer_id == expected.customer_id
+        and abs(answer.total - expected.total) <= tolerance
+    )
 
 
 def orders_as_csv_text(orders: pd.DataFrame) -> str:

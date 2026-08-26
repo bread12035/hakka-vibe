@@ -42,4 +42,3 @@ def run_output_style_experiment(
         kwargs = {"results_root": results_root} if results_root is not None else {}
         summaries[arm] = run_arm(experiment="5", arm=arm, agent_for=agent_for, **kwargs)
     return summaries
-

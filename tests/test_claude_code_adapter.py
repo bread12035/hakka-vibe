@@ -64,9 +64,7 @@ def test_every_assistant_call_in_the_transcript_becomes_a_call(tmp_path: Path) -
         tmp_path / "session.jsonl", [ASSISTANT_LINE_1, ASSISTANT_LINE_2_DIFFERENT_MODEL]
     )
 
-    record = run_record_from_transcript(
-        transcript, experiment="1", arm="1d", run=1, passed=True
-    )
+    record = run_record_from_transcript(transcript, experiment="1", arm="1d", run=1, passed=True)
 
     assert len(record.calls) == 2
     assert record.calls[0].model == "claude-opus-5"
@@ -78,9 +76,7 @@ def test_non_usage_lines_are_skipped_not_misread_as_zero_cost_calls(tmp_path: Pa
         tmp_path / "session.jsonl", [*NON_USAGE_LINES, ASSISTANT_LINE_1, *NON_USAGE_LINES]
     )
 
-    record = run_record_from_transcript(
-        transcript, experiment="1", arm="1d", run=1, passed=True
-    )
+    record = run_record_from_transcript(transcript, experiment="1", arm="1d", run=1, passed=True)
 
     assert len(record.calls) == 1
 
@@ -91,9 +87,7 @@ def test_cache_write_ttl_split_survives_the_round_trip(tmp_path: Path) -> None:
     # the combined field.
     transcript = write_transcript(tmp_path / "session.jsonl", [ASSISTANT_LINE_1])
 
-    record = run_record_from_transcript(
-        transcript, experiment="1", arm="1d", run=1, passed=True
-    )
+    record = run_record_from_transcript(transcript, experiment="1", arm="1d", run=1, passed=True)
 
     assert record.tokens.cache_write_1h == 10_319
     assert record.tokens.cache_write_5m == 0
@@ -115,9 +109,7 @@ def test_the_run_carries_iteration_detail_the_api_adapter_cannot(tmp_path: Path)
     }
     transcript = write_transcript(tmp_path / "session.jsonl", [line_with_iterations])
 
-    record = run_record_from_transcript(
-        transcript, experiment="1", arm="1d", run=1, passed=True
-    )
+    record = run_record_from_transcript(transcript, experiment="1", arm="1d", run=1, passed=True)
 
     assert record.calls[0].usage["iterations"] == [
         {"input_tokens": 2, "output_tokens": 971, "type": "message"}

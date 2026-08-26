@@ -18,24 +18,41 @@ from typing import Any
 from hakka_vibe.run_record import Call, RunRecord
 
 
+def _assistant_messages(transcript: Path) -> list[dict[str, Any]]:
+    """Every assistant message in a transcript, in order, regardless of content."""
+    messages = []
+    for raw_line in transcript.read_text().splitlines():
+        if not raw_line.strip():
+            continue
+        entry = json.loads(raw_line)
+        if entry.get("type") == "assistant":
+            messages.append(entry.get("message") or {})
+    return messages
+
+
 def _assistant_usage_lines(transcript: Path) -> list[dict[str, Any]]:
-    """Read a transcript and return only the lines that carry model usage.
+    """Read a transcript and return only the messages that carry model usage.
 
     A Claude Code transcript mixes many line types — user turns, queue
     operations, system events. Only assistant lines with usage are calls; the
     rest must be skipped outright, not misread as zero-cost calls.
     """
-    lines = []
-    for raw_line in transcript.read_text().splitlines():
-        if not raw_line.strip():
-            continue
-        entry = json.loads(raw_line)
-        if entry.get("type") != "assistant":
-            continue
-        message = entry.get("message") or {}
-        if message.get("usage"):
-            lines.append(message)
-    return lines
+    return [message for message in _assistant_messages(transcript) if message.get("usage")]
+
+
+def final_assistant_text(transcript: Path) -> str:
+    """The text of the last assistant turn that said anything at all.
+
+    A session's final turn is often tool-use only — one last bash call with no
+    prose — so the answer to grade lives on the last turn that actually has
+    text, not necessarily the last turn overall.
+    """
+    for message in reversed(_assistant_messages(transcript)):
+        blocks = message.get("content") or []
+        text = "\n".join(block["text"] for block in blocks if block.get("type") == "text")
+        if text:
+            return text
+    return ""
 
 
 def run_record_from_transcript(
@@ -50,4 +67,6 @@ def run_record_from_transcript(
     messages = _assistant_usage_lines(transcript)
     calls = tuple(Call(model=message["model"], usage=message["usage"]) for message in messages)
     model = messages[-1]["model"] if messages else ""
-    return RunRecord(experiment=experiment, arm=arm, run=run, model=model, calls=calls, passed=passed)
+    return RunRecord(
+        experiment=experiment, arm=arm, run=run, model=model, calls=calls, passed=passed
+    )
