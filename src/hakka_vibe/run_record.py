@@ -84,13 +84,21 @@ class RunRecord:
     arm: str
     run: int
     model: str
-    usage: Mapping[str, Any]
+    calls: tuple[Mapping[str, Any], ...]
+    """Raw usage for every call the run took, in order, verbatim.
+
+    A run is a whole task, so it spans many calls. They are kept separately
+    because summing before storing loses where in a task the cost went.
+    """
     passed: bool | None = None
     """Whether the run met its task's gate, or None where no gate applies."""
 
     @property
     def tokens(self) -> TokenCounts:
-        return token_counts_from_usage(self.usage)
+        total = TokenCounts()
+        for usage in self.calls:
+            total = total + token_counts_from_usage(usage)
+        return total
 
     @property
     def cost(self) -> Cost:
@@ -114,7 +122,7 @@ def write_run_record(record: RunRecord, *, root: Path = DEFAULT_RESULTS_ROOT) ->
                 "run": record.run,
                 "model": record.model,
                 "passed": record.passed,
-                "usage": record.usage,
+                "calls": list(record.calls),
             },
             indent=2,
             sort_keys=True,
@@ -131,5 +139,5 @@ def read_run_record(path: Path) -> RunRecord:
         run=stored["run"],
         model=stored["model"],
         passed=stored["passed"],
-        usage=stored["usage"],
+        calls=tuple(stored["calls"]),
     )

@@ -53,12 +53,12 @@ def test_a_stored_run_record_keeps_the_raw_usage_verbatim(tmp_path: Path) -> Non
     # away the answer to the next question and cost a re-run of every arm.
     usage = dict(OBSERVED_USAGE, iterations=[{"input_tokens": 2, "output_tokens": 971}])
     record = RunRecord(
-        experiment="6", arm="6a", run=1, model="claude-opus-5", passed=True, usage=usage
+        experiment="6", arm="6a", run=1, model="claude-opus-5", passed=True, calls=(usage,)
     )
 
     path = write_run_record(record, root=tmp_path)
 
-    assert read_run_record(path).usage == usage
+    assert read_run_record(path).calls == (usage,)
 
 
 def test_run_records_are_filed_under_their_experiment_and_arm(tmp_path: Path) -> None:
@@ -68,7 +68,7 @@ def test_run_records_are_filed_under_their_experiment_and_arm(tmp_path: Path) ->
         run=2,
         model="claude-opus-5",
         passed=False,
-        usage=OBSERVED_USAGE,
+        calls=(OBSERVED_USAGE,),
     )
 
     path = write_run_record(record, root=tmp_path)
@@ -83,7 +83,7 @@ def test_a_run_record_prices_itself_from_its_usage() -> None:
         run=1,
         model="claude-opus-5",
         passed=True,
-        usage=OBSERVED_USAGE,
+        calls=(OBSERVED_USAGE,),
     )
 
     #   input          2 tok * $5.00/MTok  = $0.000010
@@ -113,3 +113,19 @@ def test_an_absent_detail_object_still_reads_as_zero() -> None:
     assert counts.thinking == 0
     assert counts.cache_write_5m == 0
     assert counts.cache_write_1h == 0
+
+
+def test_a_run_covers_every_call_it_took() -> None:
+    # A run is a whole task, not one call. Summing the calls before storing them
+    # would lose the per-call detail that shows *where* in a task the cost went.
+    record = RunRecord(
+        experiment="6",
+        arm="6a",
+        run=1,
+        model="claude-opus-5",
+        calls=(OBSERVED_USAGE, OBSERVED_USAGE),
+    )
+
+    assert record.tokens.output == 971 * 2
+    assert record.tokens.cache_read == 222_908 * 2
+    assert record.cost.total == Decimal("0.238929") * 2

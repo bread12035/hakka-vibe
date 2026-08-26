@@ -25,6 +25,16 @@ class TokenCounts:
     cache_write_5m: int = 0
     cache_write_1h: int = 0
 
+    def __add__(self, other: "TokenCounts") -> "TokenCounts":
+        return TokenCounts(
+            input=self.input + other.input,
+            output=self.output + other.output,
+            thinking=self.thinking + other.thinking,
+            cache_read=self.cache_read + other.cache_read,
+            cache_write_5m=self.cache_write_5m + other.cache_write_5m,
+            cache_write_1h=self.cache_write_1h + other.cache_write_1h,
+        )
+
 
 @dataclass(frozen=True)
 class Cost:

@@ -52,5 +52,5 @@ def record_one_call(
         arm=arm,
         run=run,
         model=model,
-        usage=response.usage.model_dump(),
+        calls=(response.usage.model_dump(),),
     )
