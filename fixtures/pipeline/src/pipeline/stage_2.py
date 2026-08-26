@@ -12,5 +12,5 @@ def combine(base: int, adjustment: int) -> int:
 def refine(value: int) -> int:
     carried = _next(value)
     if carried <= THRESHOLD:
-        carried = carried + 1
+        carried = carried + 2
     return combine(carried, 2)
