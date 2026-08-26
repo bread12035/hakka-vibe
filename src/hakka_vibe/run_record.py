@@ -93,6 +93,14 @@ class RunRecord:
     passed: bool | None = None
     """Whether the run met its task's gate, or None where no gate applies."""
 
+    fixture: str | None = None
+    """Fingerprint of the fixture this run was measured on.
+
+    A fixture is deepened and regenerated when it proves too easy, and results
+    from before that are not comparable with results from after. Recording which
+    version a run used is what keeps the two apart.
+    """
+
     @property
     def tokens(self) -> TokenCounts:
         total = TokenCounts()
@@ -122,6 +130,7 @@ def write_run_record(record: RunRecord, *, root: Path = DEFAULT_RESULTS_ROOT) ->
                 "run": record.run,
                 "model": record.model,
                 "passed": record.passed,
+                "fixture": record.fixture,
                 "calls": list(record.calls),
             },
             indent=2,
@@ -139,5 +148,6 @@ def read_run_record(path: Path) -> RunRecord:
         run=stored["run"],
         model=stored["model"],
         passed=stored["passed"],
+        fixture=stored["fixture"],
         calls=tuple(stored["calls"]),
     )

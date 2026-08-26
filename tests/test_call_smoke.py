@@ -55,3 +55,32 @@ def test_the_agent_fixes_the_fixture_and_records_what_it_cost(tmp_path: Path) ->
     assert agent.turns_taken > 1, "a one-turn fix means the fixture is too easy"
     assert len(record.calls) == agent.turns_taken
     assert record.cost.total > 0
+
+
+def test_an_arm_runs_three_times_and_summarises(tmp_path: Path) -> None:
+    # The one smoke test for the runner entry: three billable runs, so it proves
+    # the path joins up and nothing more. What it computes is covered by the
+    # fast tests over ArmSummary.
+    import shutil
+
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiment import RUNS_PER_ARM, run_arm
+
+    def fresh_fixture(run: int) -> Path:
+        workspace = tmp_path / f"run-{run}"
+        shutil.copytree("fixtures/pipeline", workspace)
+        return workspace
+
+    summary = run_arm(
+        Anthropic(),
+        experiment="smoke",
+        arm="smoke",
+        workspace_for=fresh_fixture,
+        model="claude-opus-5",
+        results_root=tmp_path / "results",
+    )
+
+    assert summary.runs == RUNS_PER_ARM
+    assert summary.lowest_cost <= summary.median_cost <= summary.highest_cost
+    assert len(list((tmp_path / "results" / "smoke" / "smoke").glob("*.json"))) == RUNS_PER_ARM

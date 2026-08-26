@@ -11,6 +11,7 @@ is a random variable, so it cannot be tuned to what a solver happens to look at
 first.
 """
 
+import hashlib
 import os
 import random
 import subprocess
@@ -217,3 +218,17 @@ def inject_bug(fixture: Fixture, *, seed: int) -> MutationSite:
     site = random.Random(seed).choice(fixture.sites)
     _rewrite_line(fixture.root / site.module, site.line, site.mutated)
     return site
+
+
+def fixture_fingerprint(root: Path) -> str:
+    """Identify which version of a fixture a run was measured on.
+
+    A verdict only means something against the fixture it was measured on. When
+    a fixture is deepened and regenerated, the fingerprint changes, so an old
+    calibration cannot silently appear to still apply.
+    """
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*.py")):
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:16]

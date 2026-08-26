@@ -20,6 +20,7 @@ from anthropic import Anthropic
 from anthropic.types import MessageParam, ToolParam
 
 from hakka_vibe.call import DEFAULT_CACHE_TTL, DEFAULT_MAX_TOKENS, CacheTtl
+from hakka_vibe.fixture import fixture_fingerprint
 from hakka_vibe.prompts import PromptSet
 from hakka_vibe.run_record import RunRecord
 
@@ -187,4 +188,5 @@ class FixerAgent:
             model=self.model,
             calls=tuple(self.calls),
             passed=self.check().passed,
+            fixture=fixture_fingerprint(self.workspace),
         )
