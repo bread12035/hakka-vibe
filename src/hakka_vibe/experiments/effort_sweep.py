@@ -5,13 +5,12 @@ This is the baseline every other experiment is judged against (spec, §Experimen
 saves has to clear that bar to be worth building.
 """
 
-import shutil
 from pathlib import Path
 
 from anthropic import Anthropic
 
 from hakka_vibe.agent import Effort, FixerAgent
-from hakka_vibe.experiment import ArmSummary, run_arm
+from hakka_vibe.experiment import ArmSummary, fresh_copy_of, run_arm
 
 ARMS: dict[str, Effort] = {
     "6a": "low",
@@ -34,17 +33,10 @@ def run_effort_sweep(
 
         def agent_for(run: int, *, effort: Effort = effort, arm: str = arm) -> FixerAgent:
             return FixerAgent(
-                client=client, workspace=_fresh_copy(fixture, arm, run), model=model, effort=effort
+                client=client, workspace=fresh_copy_of(fixture, arm, run), model=model, effort=effort
             )
 
         kwargs = {"results_root": results_root} if results_root is not None else {}
         summaries[arm] = run_arm(experiment="6", arm=arm, agent_for=agent_for, **kwargs)
     return summaries
 
-
-def _fresh_copy(fixture: Path, arm: str, run: int) -> Path:
-    destination = fixture.parent / f".{fixture.name}-{arm}-{run}"
-    if destination.exists():
-        shutil.rmtree(destination)
-    shutil.copytree(fixture, destination)
-    return destination

@@ -107,3 +107,22 @@ def test_the_effort_sweep_runs_all_four_arms(tmp_path: Path) -> None:
     assert set(summaries) == set(ARMS)
     for summary in summaries.values():
         assert summary.runs == 3
+
+
+def test_the_output_style_experiment_runs_all_three_arms(tmp_path: Path) -> None:
+    import shutil
+
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiments.output_style import ARMS, run_output_style_experiment
+
+    fixture = tmp_path / "pipeline"
+    shutil.copytree("fixtures/pipeline", fixture)
+
+    summaries = run_output_style_experiment(
+        Anthropic(), fixture=fixture, model="claude-opus-5", results_root=tmp_path / "results"
+    )
+
+    assert set(summaries) == set(ARMS)
+    for summary in summaries.values():
+        assert summary.runs == 3

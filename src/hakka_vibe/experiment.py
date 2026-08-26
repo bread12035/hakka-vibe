@@ -5,6 +5,7 @@ the same arm varies between attempts, and a single number invites a claim the
 data cannot support.
 """
 
+import shutil
 import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -77,3 +78,16 @@ def run_arm(
         write_run_record(record, root=results_root)
         records.append(record)
     return summarise(arm, records)
+
+
+def fresh_copy_of(fixture: Path, arm: str, run: int) -> Path:
+    """A fresh, isolated copy of the fixture for one run of one arm.
+
+    Every experiment module needs this: sharing one workspace across runs
+    would leave a later run working on whatever an earlier one left behind.
+    """
+    destination = fixture.parent / f".{fixture.name}-{arm}-{run}"
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(fixture, destination)
+    return destination
