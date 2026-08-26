@@ -48,3 +48,15 @@ def test_effort_defaults_to_anthropics_own_default() -> None:
 
 def test_each_arm_can_set_its_own_effort() -> None:
     assert agent(effort="low").effort == "low"
+
+
+def test_the_agents_layout_setting_is_what_orders_its_messages() -> None:
+    from hakka_vibe.prompt_layout import PromptLayout
+
+    history = [{"role": "user", "content": "task"}, {"role": "assistant", "content": "turn 1"}]
+
+    baseline = agent(prompt_layout=PromptLayout.BASELINE).messages_for_test(history)
+    dynamic_first = agent(prompt_layout=PromptLayout.DYNAMIC_FIRST).messages_for_test(history)
+
+    assert baseline[-1]["content"].startswith("PROGRESS")
+    assert dynamic_first[0]["content"].startswith("PROGRESS")

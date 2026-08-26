@@ -22,6 +22,7 @@ from anthropic.types import MessageParam, TextBlockParam, ToolParam, ToolResultB
 from hakka_vibe.call import DEFAULT_CACHE_TTL, DEFAULT_MAX_TOKENS, CacheTtl
 from hakka_vibe.fixture import fixture_fingerprint
 from hakka_vibe.output_style import OutputStyle
+from hakka_vibe.prompt_layout import PromptLayout, assemble_messages
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 DEFAULT_EFFORT: Effort = "high"
@@ -79,6 +80,10 @@ class FixerAgent:
 
     None reproduces Anthropic's default voice, which is arm 5a's baseline.
     """
+    prompt_layout: PromptLayout = PromptLayout.BASELINE
+    """Experiment 1's variable: where the dynamic progress note sits in messages."""
+    compaction: bool = False
+    """Experiment 1d: opt into server-side compaction (beta) for this run."""
 
     turns_taken: int = 0
     """How many model turns this run has spent."""
@@ -142,6 +147,16 @@ class FixerAgent:
             )
         ]
 
+    def _dynamic_note(self) -> str:
+        """A per-turn progress note, derived from state rather than written by the
+        model: turn count against the budget. Deterministic, so its placement
+        (experiment 1's variable) can be tested without a call."""
+        return f"PROGRESS: turn {self.turns_taken} of {self.max_turns}."
+
+    def messages_for_test(self, history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Expose the assembled messages for the no-call layout tests."""
+        return assemble_messages(history, self._dynamic_note(), layout=self.prompt_layout)
+
     def system_blocks_for_test(self) -> list[TextBlockParam]:
         """Expose the assembled system blocks for the deterministic, no-call tests.
 
@@ -174,14 +189,21 @@ class FixerAgent:
         ]
 
         while self.turns_taken < self.max_turns:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=DEFAULT_MAX_TOKENS,
-                system=self._system_blocks(),
-                output_config={"effort": self.effort},
-                tools=self._tools(),
-                messages=messages,
-            )
+            create = self.client.beta.messages.create if self.compaction else self.client.messages.create
+            request: dict[str, Any] = {
+                "model": self.model,
+                "max_tokens": DEFAULT_MAX_TOKENS,
+                "system": self._system_blocks(),
+                "output_config": {"effort": self.effort},
+                "tools": self._tools(),
+                "messages": assemble_messages(
+                    messages, self._dynamic_note(), layout=self.prompt_layout
+                ),
+            }
+            if self.compaction:
+                request["betas"] = ["compact-2026-01-12"]
+                request["context_management"] = {"edits": [{"type": "compact_20260112"}]}
+            response = create(**request)
             self.turns_taken += 1
             self.calls.append(Call(model=self.model, usage=response.usage.model_dump()))
 
