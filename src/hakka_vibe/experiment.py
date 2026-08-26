@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
-from anthropic import Anthropic
-
 from hakka_vibe.agent import FixerAgent
 from hakka_vibe.run_record import DEFAULT_RESULTS_ROOT, RunRecord, write_run_record
 
@@ -43,7 +41,9 @@ def summarise(arm: str, records: Sequence[RunRecord]) -> ArmSummary:
     thing: an arm that gives up immediately is the cheapest one there is.
     """
     if len(records) != RUNS_PER_ARM:
-        raise ValueError(f"an arm is summarised from exactly {RUNS_PER_ARM} runs, got {len(records)}")
+        raise ValueError(
+            f"an arm is summarised from exactly {RUNS_PER_ARM} runs, got {len(records)}"
+        )
 
     costs = sorted(record.cost.total for record in records)
     return ArmSummary(
@@ -57,30 +57,23 @@ def summarise(arm: str, records: Sequence[RunRecord]) -> ArmSummary:
 
 
 def run_arm(
-    client: Anthropic,
     *,
     experiment: str,
     arm: str,
-    workspace_for: Callable[[int], Path],
-    model: str,
+    agent_for: Callable[[int], FixerAgent],
     results_root: Path = DEFAULT_RESULTS_ROOT,
-    max_turns: int = FixerAgent.max_turns,
 ) -> ArmSummary:
     """Execute one arm three times, store each run, and summarise them.
 
-    ``workspace_for`` is called with the run number and returns a fresh copy of
-    the fixture. Each run starts from the same frozen state, or the second run
-    would be working on whatever the first one left behind.
+    ``agent_for`` is called with the run number and returns a fully configured
+    agent for that run, pointed at its own fresh copy of the fixture. Sharing
+    one workspace across runs would leave the second run working on whatever
+    the first left behind; building the agent per run is what the caller uses
+    to vary effort, style, or model between arms.
     """
     records: list[RunRecord] = []
     for run in range(1, RUNS_PER_ARM + 1):
-        agent = FixerAgent(
-            client=client,
-            workspace=workspace_for(run),
-            model=model,
-            max_turns=max_turns,
-        )
-        record = agent.fix(experiment=experiment, arm=arm, run=run)
+        record = agent_for(run).fix(experiment=experiment, arm=arm, run=run)
         write_run_record(record, root=results_root)
         records.append(record)
     return summarise(arm, records)

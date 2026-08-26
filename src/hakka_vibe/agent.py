@@ -14,13 +14,18 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from anthropic import Anthropic
-from anthropic.types import MessageParam, ToolParam
+from anthropic.types import MessageParam, TextBlockParam, ToolParam
 
 from hakka_vibe.call import DEFAULT_CACHE_TTL, DEFAULT_MAX_TOKENS, CacheTtl
 from hakka_vibe.fixture import fixture_fingerprint
+from hakka_vibe.output_style import OutputStyle
+
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+DEFAULT_EFFORT: Effort = "high"
+"""Anthropic's own default, used whenever an arm does not vary effort."""
 from hakka_vibe.prompts import PromptSet
 from hakka_vibe.run_record import RunRecord
 
@@ -68,6 +73,12 @@ class FixerAgent:
     prompts: PromptSet = field(default_factory=PromptSet)
     max_turns: int = 40
     cache_ttl: CacheTtl = DEFAULT_CACHE_TTL
+    effort: Effort = DEFAULT_EFFORT
+    output_style: OutputStyle | None = None
+    """Experiment 5's variable: a style block appended to the system prompt.
+
+    None reproduces Anthropic's default voice, which is arm 5a's baseline.
+    """
 
     turns_taken: int = 0
     """How many model turns this run has spent."""
@@ -119,6 +130,26 @@ class FixerAgent:
         )
         return TestOutcome(passed=completed.returncode == 0, output=completed.stdout)
 
+    def _system_blocks(self) -> list[TextBlockParam]:
+        text = self.prompts.render("fixer.system")
+        if self.output_style is not None:
+            text = f"{text}\n\n{self.output_style.instruction}"
+        return [
+            TextBlockParam(
+                type="text",
+                text=text,
+                cache_control={"type": "ephemeral", "ttl": self.cache_ttl},
+            )
+        ]
+
+    def system_blocks_for_test(self) -> list[TextBlockParam]:
+        """Expose the assembled system blocks for the deterministic, no-call tests.
+
+        Not part of the model-facing interface — it is here so the frozen
+        prompt and the style append can be pinned down without a call.
+        """
+        return self._system_blocks()
+
     def _tools(self) -> list[ToolParam]:
         return [
             _schema_of(type(self).list_files),
@@ -146,13 +177,8 @@ class FixerAgent:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=DEFAULT_MAX_TOKENS,
-                system=[
-                    {
-                        "type": "text",
-                        "text": self.prompts.render("fixer.system"),
-                        "cache_control": {"type": "ephemeral", "ttl": self.cache_ttl},
-                    }
-                ],
+                system=self._system_blocks(),
+                output_config={"effort": self.effort},
                 tools=self._tools(),
                 messages=messages,
             )

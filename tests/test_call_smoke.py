@@ -65,6 +65,7 @@ def test_an_arm_runs_three_times_and_summarises(tmp_path: Path) -> None:
 
     from anthropic import Anthropic
 
+    from hakka_vibe.agent import FixerAgent
     from hakka_vibe.experiment import RUNS_PER_ARM, run_arm
 
     def fresh_fixture(run: int) -> Path:
@@ -72,15 +73,37 @@ def test_an_arm_runs_three_times_and_summarises(tmp_path: Path) -> None:
         shutil.copytree("fixtures/pipeline", workspace)
         return workspace
 
+    client = Anthropic()
+
+    def agent_for(run: int) -> FixerAgent:
+        return FixerAgent(client=client, workspace=fresh_fixture(run), model="claude-opus-5")
+
     summary = run_arm(
-        Anthropic(),
         experiment="smoke",
         arm="smoke",
-        workspace_for=fresh_fixture,
-        model="claude-opus-5",
+        agent_for=agent_for,
         results_root=tmp_path / "results",
     )
 
     assert summary.runs == RUNS_PER_ARM
     assert summary.lowest_cost <= summary.median_cost <= summary.highest_cost
     assert len(list((tmp_path / "results" / "smoke" / "smoke").glob("*.json"))) == RUNS_PER_ARM
+
+
+def test_the_effort_sweep_runs_all_four_arms(tmp_path: Path) -> None:
+    import shutil
+
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiments.effort_sweep import ARMS, run_effort_sweep
+
+    fixture = tmp_path / "pipeline"
+    shutil.copytree("fixtures/pipeline", fixture)
+
+    summaries = run_effort_sweep(
+        Anthropic(), fixture=fixture, model="claude-opus-5", results_root=tmp_path / "results"
+    )
+
+    assert set(summaries) == set(ARMS)
+    for summary in summaries.values():
+        assert summary.runs == 3
