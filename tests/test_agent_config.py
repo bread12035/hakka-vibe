@@ -60,3 +60,34 @@ def test_the_agents_layout_setting_is_what_orders_its_messages() -> None:
 
     assert baseline[-1]["content"].startswith("PROGRESS")
     assert dynamic_first[0]["content"].startswith("PROGRESS")
+
+
+def test_with_no_decoys_the_tool_set_is_exactly_the_four_capabilities() -> None:
+    assert len(agent().tools_for_test()) == 4
+
+
+def test_arm_4a_exposes_every_decoy_directly() -> None:
+    exposed = agent(decoy_tools=30).tools_for_test()
+
+    assert len(exposed) == 34
+    assert not any(tool.get("defer_loading") for tool in exposed)
+
+
+def test_arm_4b_defers_every_decoy_behind_tool_search() -> None:
+    exposed = agent(decoy_tools=30, use_tool_search=True).tools_for_test()
+
+    search_tools = [t for t in exposed if str(t.get("type", "")).startswith("tool_search_tool")]
+    real_capabilities = [
+        t
+        for t in exposed
+        if t.get("name") in {"list_files", "read_file", "write_file", "run_tests"}
+    ]
+    decoys = [t for t in exposed if t not in search_tools and t not in real_capabilities]
+
+    assert len(search_tools) == 1
+    assert not search_tools[0].get("defer_loading")  # the search tool itself is never deferred
+    assert not any(
+        t.get("defer_loading") for t in real_capabilities
+    )  # the task's own tools stay ready
+    assert len(decoys) == 30
+    assert all(t.get("defer_loading") for t in decoys)

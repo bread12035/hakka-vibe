@@ -159,3 +159,22 @@ def test_the_prompt_ordering_experiment_runs_all_five_arms(tmp_path: Path) -> No
     assert set(summaries) == set(ARMS)
     for summary in summaries.values():
         assert summary.runs == 3
+
+
+def test_the_tool_search_experiment_runs_both_arms(tmp_path: Path) -> None:
+    import shutil
+
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiments.tool_search import ARMS, run_tool_search_experiment
+
+    fixture = tmp_path / "pipeline"
+    shutil.copytree("fixtures/pipeline", fixture)
+
+    summaries = run_tool_search_experiment(
+        Anthropic(), fixture=fixture, model="claude-opus-5", results_root=tmp_path / "results"
+    )
+
+    assert set(summaries) == set(ARMS)
+    for summary in summaries.values():
+        assert summary.runs == 3

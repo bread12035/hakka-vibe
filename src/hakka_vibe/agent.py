@@ -20,6 +20,7 @@ from anthropic import Anthropic
 from anthropic.types import MessageParam, TextBlockParam, ToolParam, ToolResultBlockParam
 
 from hakka_vibe.call import DEFAULT_CACHE_TTL, DEFAULT_MAX_TOKENS, CacheTtl
+from hakka_vibe.decoy_tools import generate_decoy_tools
 from hakka_vibe.fixture import fixture_fingerprint
 from hakka_vibe.output_style import OutputStyle
 from hakka_vibe.prompt_layout import PromptLayout, assemble_messages
@@ -84,6 +85,13 @@ class FixerAgent:
     """Experiment 1's variable: where the dynamic progress note sits in messages."""
     compaction: bool = False
     """Experiment 1d: opt into server-side compaction (beta) for this run."""
+    decoy_tools: int = 0
+    """Experiment 4's variable: how many never-called tools inflate the tool
+    surface. 0 reproduces the plain four-capability tool set."""
+    use_tool_search: bool = False
+    """Arm 4b: defer the decoys behind tool search rather than exposing them
+    directly. The task's own four capabilities stay non-deferred — they are
+    needed on every turn, not something worth searching for."""
 
     turns_taken: int = 0
     """How many model turns this run has spent."""
@@ -165,13 +173,31 @@ class FixerAgent:
         """
         return self._system_blocks()
 
-    def _tools(self) -> list[ToolParam]:
-        return [
+    def tools_for_test(self) -> list[ToolParam]:
+        """Expose the assembled tool list for the no-call arm-configuration tests."""
+        return self._tools()
+
+    def _tools(self) -> list[Any]:
+        core = [
             _schema_of(type(self).list_files),
             _schema_of(type(self).read_file),
             _schema_of(type(self).write_file),
             _schema_of(type(self).run_tests),
         ]
+        if self.decoy_tools == 0:
+            return core
+
+        decoys = generate_decoy_tools(count=self.decoy_tools, seed=hash(self.model) & 0xFFFF)
+        if not self.use_tool_search:
+            return [*core, *decoys]
+
+        from anthropic.types import ToolSearchToolBm25_20251119Param
+
+        search_tool = ToolSearchToolBm25_20251119Param(
+            type="tool_search_tool_bm25_20251119", name="tool_search_tool_bm25"
+        )
+        deferred = [ToolParam(**{**tool, "defer_loading": True}) for tool in decoys]
+        return [search_tool, *core, *deferred]
 
     def _invoke(self, name: str, arguments: Any) -> str:
         capability = getattr(self, name)
@@ -189,7 +215,9 @@ class FixerAgent:
         ]
 
         while self.turns_taken < self.max_turns:
-            create = self.client.beta.messages.create if self.compaction else self.client.messages.create
+            create = (
+                self.client.beta.messages.create if self.compaction else self.client.messages.create
+            )
             request: dict[str, Any] = {
                 "model": self.model,
                 "max_tokens": DEFAULT_MAX_TOKENS,

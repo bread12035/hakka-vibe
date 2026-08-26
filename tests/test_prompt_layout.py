@@ -28,7 +28,9 @@ def test_baseline_puts_the_dynamic_block_after_all_history() -> None:
 def test_dynamic_first_puts_it_before_any_history() -> None:
     # 1b: the volatile block leads, so it sits inside what would otherwise be
     # the stable prefix — every turn's change invalidates everything after it.
-    assembled = assemble_messages(HISTORY, "PROGRESS: turn 2 of 40", layout=PromptLayout.DYNAMIC_FIRST)
+    assembled = assemble_messages(
+        HISTORY, "PROGRESS: turn 2 of 40", layout=PromptLayout.DYNAMIC_FIRST
+    )
 
     assert assembled[0]["content"] == "PROGRESS: turn 2 of 40"
     assert assembled[1:] == HISTORY
@@ -40,7 +42,10 @@ def test_interleaved_repeats_a_stable_reminder_through_the_history() -> None:
     # added, so this only ever helps a *fresh* conversation, never a
     # continuing one.
     assembled = assemble_messages(
-        HISTORY, "PROGRESS: turn 2 of 40", layout=PromptLayout.STATIC_INTERLEAVED, reminder="REMEMBER: small edits"
+        HISTORY,
+        "PROGRESS: turn 2 of 40",
+        layout=PromptLayout.STATIC_INTERLEAVED,
+        reminder="REMEMBER: small edits",
     )
 
     reminders = [m for m in assembled if m.get("content") == "REMEMBER: small edits"]
