@@ -87,22 +87,107 @@ Harness 的能力由 experiment 逐一驅動長出來：每個 experiment 需要
 - 這些 seam 一律由其 experiment 驅動產生，不預先建置。理由是每個 seam 屆時都有兩個真實 adapter（該 experiment 的兩個 arm），符合「一個 adapter 是假想的 seam，兩個才是真的」。
 - 部分部位不需要抽象。Experiment 5 更換 style 只是替換一段 system prompt 文字，做成可插拔架構屬於過度設計。
 
-### Experiment 的 arm 定義
+### Experiment 1 — prompt 排序
 
-- **Experiment 1 — prompt 排序**：僅在自建 harness 執行。比較 static 內容、對話紀錄、dynamic 內容的不同排列，並觀察 compact 觸發後 cache 的變化。TTL 選擇（5 分鐘對 1 小時）作為本 experiment 的子項一併測試。
-- **Experiment 2 — pass by reference**：自建 harness 比較三個 arm：資料全文進入 context、以 `DataRef` 包裝 in-process 資料、以 `DataRef` 包裝 SQLite。Claude Code 另比較兩個 arm：資料置於 sandbox 由 pandas 取用，對照資料以文字全量塞入。
-- **Experiment 3 — subagent 架構**：三個 arm。Arm A 傳遞完整對話紀錄，subagent 每次呼叫全新建立。Arm B 傳遞主 agent 產生的壓縮摘要，subagent 每次呼叫全新建立；產生壓縮所耗的主 agent output token 計入本 arm。Arm C 為 persistent subagent，首次傳遞內容與 Arm A 相同，後續僅傳增量。Subagent 一律使用較便宜的模型，該變因於分析時與架構變因分離。
-- **Experiment 4 — 動態 tool 選擇**：比較使用 tool search 搭配延遲載入，對照直接暴露大量 tool。
-- **Experiment 5 — output style**：以 output token 衡量，非 cache token。caveman 與 STE100 分別為獨立 arm，另有無 style 的對照組。
-- **Experiment 6 — thinking 成本**：effort 掃描（low、medium、high、xhigh）作為 baseline；另比較單一 agent 直接完成任務，對照主 agent 先產出計畫再逐步執行；並測試 low effort 搭配流程拆解的組合。
+僅在自建 harness 執行。Claude Code 的 tools 與 system 組裝順序不可控，無對照組。
+
+| Arm | 內容 |
+| --- | --- |
+| 1a | static 內容 → 對話紀錄 → dynamic 內容（基準排列） |
+| 1b | dynamic 內容前置 |
+| 1c | static 內容分散於對話紀錄之間 |
+| 1d | 基準排列，但持續執行至 compact 觸發 |
+| 1e | 基準排列，改用 1 小時 TTL |
+
+1d 觀察 compact 觸發後 cache 的變化。1e 為 TTL 子項，與 1a 唯一差異為 TTL。
+
+### Experiment 2 — pass by reference
+
+自建 harness 與 Claude Code 皆執行，但 arm 不同。另配資料分析任務，pass/fail 判準為答案數值正確。
+
+| Arm | Harness | 內容 |
+| --- | --- | --- |
+| 2a | 自建 | 資料全文進入 context |
+| 2b | 自建 | 以 `DataRef` 包裝 in-process 資料 |
+| 2c | 自建 | 以 `DataRef` 包裝 SQLite |
+| 2d | Claude Code | 資料置於 sandbox，由 pandas 取用 |
+| 2e | Claude Code | 資料以文字全量塞入 |
+
+### Experiment 3 — subagent 架構
+
+僅在自建 harness 執行。Subagent 一律使用較便宜的模型；該變因於分析時與架構變因分離。
+
+| Arm | 傳遞給 subagent | Subagent 生命週期 |
+| --- | --- | --- |
+| 3a | 完整對話紀錄 | 每次呼叫全新建立 |
+| 3b | 主 agent 產生的壓縮摘要 | 每次呼叫全新建立 |
+| 3c | 首次同 3a，後續僅傳增量 | 持續存活 |
+
+3b 產生壓縮所耗的主 agent output token 計入 3b 自身，依 ADR-0002。3c 首次傳遞內容與 3a 相同，使兩者成為單變因對照，藉此分離出「subagent 持續存活」單獨的價值。
+
+### Experiment 4 — 動態 tool 選擇
+
+自建 harness 與 Claude Code 皆執行。另配大量 tool 的任務：暴露遠多於所需的 tool，實際只需其中少數。
+
+| Arm | 內容 |
+| --- | --- |
+| 4a | 全部 tool 直接暴露 |
+| 4b | tool search 搭配延遲載入 |
+
+### Experiment 5 — output style
+
+以 output token 衡量，非 cache token。Output style 影響模型寫出的內容，其指令本身是一小段靜態文字，對 cache 影響甚微。
+
+| Arm | 內容 |
+| --- | --- |
+| 5a | 無 style（對照組） |
+| 5b | caveman |
+| 5c | STE100 |
+
+caveman 與 STE100 分列，因為兩者的可讀性代價差距很大：STE100 有明確規格，caveman 沒有。已知公開實測顯示 caveman 在真實 agentic 任務的節省幅度遠低於其宣稱值。
+
+### Experiment 6 — thinking 成本
+
+effort 掃描為 baseline，是所有其他 experiment 的比較基準。
+
+| Arm | 內容 |
+| --- | --- |
+| 6a | effort low，單一 agent |
+| 6b | effort medium，單一 agent |
+| 6c | effort high，單一 agent |
+| 6d | effort xhigh，單一 agent |
+| 6e | effort high，主 agent 先產出計畫再逐步執行 |
+| 6f | effort low，先規劃再逐步執行 |
+
+6a 至 6d 構成 effort 掃描，為第一個垂直切片的內容。6e 與 6f 為流程拆解，需要額外的 harness 機制，排在最後執行。6f 測試「低 effort 搭配明確計畫」能否取得與高 effort 相近的通過率。
+
+### 規模
+
+共 24 個 arm，每個 arm 執行三次，合計 72 次 run。
+
+| Experiment | Arm 數 | Run 數 |
+| --- | --- | --- |
+| 1 prompt 排序 | 5 | 15 |
+| 2 pass by reference | 5 | 15 |
+| 3 subagent 架構 | 3 | 9 |
+| 4 動態 tool 選擇 | 2 | 6 |
+| 5 output style | 3 | 9 |
+| 6 thinking 成本 | 6 | 18 |
 
 ### 執行順序
 
-依「所需 harness 機制由少到多」排列：experiment 6 的 effort 掃描、experiment 5、experiment 2、experiment 1、experiment 4、experiment 3 與 experiment 6 的流程拆解部分。便宜的 baseline 先建立，複雜機制在有比較基準之後才投入。
+依「所需 harness 機制由少到多」排列，便宜的 baseline 先建立，複雜機制在有比較基準之後才投入：
+
+1. **6a–6d**（effort 掃描）— 僅需更動一個 API 參數
+2. **5a–5c**（output style）— 僅需替換一段 system prompt 文字
+3. **2a–2e**（pass by reference）— 需要 `DataRef` 與程式碼執行環境
+4. **1a–1e**（prompt 排序）— 需要可替換的 prompt 組裝
+5. **4a–4b**（動態 tool 選擇）— 需要 tool 清單與延遲載入設定
+6. **3a–3c 與 6e–6f**（subagent 架構與流程拆解）— 需要最多的 harness 機制
 
 ### 第一個垂直切片
 
-量測基建、最小 agent、experiment 6 的 effort 掃描。此切片刻意不包含任何 seam 抽象。
+量測基建、最小 agent、**6a–6d**。此切片刻意不包含任何 seam 抽象。
 
 ## Testing Decisions
 
