@@ -50,7 +50,9 @@ def _delegate_investigation(
 
         compressed = None
         if mode is DelegationMode.FRESH_COMPRESSED and history:
-            compressed, compress_call = compress(client, ORCHESTRATOR_MODEL, text="\n\n".join(history))
+            compressed, compress_call = compress(
+                client, ORCHESTRATOR_MODEL, text="\n\n".join(history)
+            )
             spent.append(compress_call)
         elif mode is DelegationMode.FRESH_COMPRESSED:
             compressed = ""
@@ -86,7 +88,9 @@ def run_subagent_experiment(
         records: list[RunRecord] = []
         for run in range(1, RUNS_PER_ARM + 1):
             workspace = fresh_copy_of(fixture, arm, run)
-            findings, delegation_calls = _delegate_investigation(client, mode=mode, workspace=workspace)
+            findings, delegation_calls = _delegate_investigation(
+                client, mode=mode, workspace=workspace
+            )
 
             fixer = FixerAgent(
                 client=client,
@@ -96,7 +100,9 @@ def run_subagent_experiment(
             )
             record = fixer.fix(experiment="3", arm=arm, run=run)
             gated = dataclasses.replace(record, calls=(*delegation_calls, *record.calls))
-            write_run_record(gated, root=results_root if results_root is not None else DEFAULT_RESULTS_ROOT)
+            write_run_record(
+                gated, root=results_root if results_root is not None else DEFAULT_RESULTS_ROOT
+            )
             records.append(gated)
         summaries[arm] = summarise(arm, records)
     return summaries

@@ -226,9 +226,7 @@ class FixerAgent:
     def fix(self, *, experiment: str, arm: str, run: int) -> RunRecord:
         """Work the task until the suite passes or the turn budget runs out."""
         plan = self.plan() if self.workflow else None
-        messages: list[MessageParam] = [
-            {"role": "user", "content": self._assemble_task(plan=plan)}
-        ]
+        messages: list[MessageParam] = [{"role": "user", "content": self._assemble_task(plan=plan)}]
 
         while self.turns_taken < self.max_turns:
             create = (

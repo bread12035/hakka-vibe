@@ -26,9 +26,7 @@ ARMS: dict[str, ArmConfig] = {
 }
 
 
-def build_agent(
-    arm: str, run: int, *, client: Anthropic, fixture: Path, model: str
-) -> FixerAgent:
+def build_agent(arm: str, run: int, *, client: Anthropic, fixture: Path, model: str) -> FixerAgent:
     """Construct the agent for one run of one arm. No call — safe to test directly."""
     config = ARMS[arm]
     return FixerAgent(
