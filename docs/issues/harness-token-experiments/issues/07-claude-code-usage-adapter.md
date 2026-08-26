@@ -7,6 +7,7 @@
 **Status:** ready-for-agent
 
 - [ ] 從 session transcript 產出 run 紀錄，型別與自建 harness 相同
+- [ ] 保留逐輪明細（`iterations`）：此欄位僅存在於 Claude Code 的 transcript，API 回應沒有，故由本票承接
 - [ ] 這是 RunRecord 建構的第二個 adapter，使該 seam 具備兩個真實 adapter
 - [ ] 套用 1 小時 TTL 的 cache write 單價，因 Claude Code 的 TTL 不可設定
 - [ ] 解析邏輯有測試覆蓋，測試不需要網路

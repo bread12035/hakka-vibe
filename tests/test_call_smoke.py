@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from hakka_vibe.call import record_one_call_to_disk
-from hakka_vibe.run_record import read_run_record
+from hakka_vibe.call import record_one_call
+from hakka_vibe.run_record import read_run_record, write_run_record
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("ANTHROPIC_API_KEY"),
@@ -22,15 +22,15 @@ pytestmark = pytest.mark.skipif(
 def test_one_call_lands_on_disk_priced(tmp_path: Path) -> None:
     from anthropic import Anthropic
 
-    path = record_one_call_to_disk(
+    record = record_one_call(
         Anthropic(),
         prompt="Reply with the single word: ok",
         model="claude-haiku-4-5",
         experiment="smoke",
         arm="smoke",
         run=1,
-        root=tmp_path,
     )
+    path = write_run_record(record, root=tmp_path)
 
     record = read_run_record(path)
     assert record.tokens.input > 0

@@ -14,14 +14,49 @@ from typing import Any
 from hakka_vibe.cost import Cost, TokenCounts, cost_of
 
 __all__ = [
-    "Cost",
+    "DEFAULT_RESULTS_ROOT",
     "RunRecord",
-    "TokenCounts",
-    "cost_of",
     "read_run_record",
     "token_counts_from_usage",
     "write_run_record",
 ]
+
+DEFAULT_RESULTS_ROOT = Path("results")
+"""Where run records live, relative to the repo root, and under version control.
+
+Every run of every arm is kept, so a later question can be answered by
+re-reading the raw usage instead of re-running 72 billable runs.
+"""
+
+
+class UsageFieldMissing(KeyError):
+    """A usage mapping lacked a field the cost model prices.
+
+    Raised rather than defaulting to zero: a silently absent field prices that
+    token class at $0, which does not fail, does not warn, and quietly
+    invalidates every conclusion drawn from the run.
+    """
+
+
+def _required(mapping: Mapping[str, Any], field: str, *, within: str) -> Any:
+    if field not in mapping:
+        raise UsageFieldMissing(
+            f"{within} has no {field!r}: refusing to price it as zero. "
+            f"Present fields: {sorted(mapping)}"
+        )
+    return mapping[field]
+
+
+def _nested_count(usage: Mapping[str, Any], container: str, field: str) -> int:
+    """Read a count out of an optional nested detail object.
+
+    The container is absent-as-null when there is nothing to report, but when it
+    is present the field inside it must be too.
+    """
+    nested = _required(usage, container, within="usage")
+    if nested is None:
+        return 0
+    return _required(nested, field, within=container) or 0
 
 
 def token_counts_from_usage(usage: Mapping[str, Any]) -> TokenCounts:
@@ -31,16 +66,13 @@ def token_counts_from_usage(usage: Mapping[str, Any]) -> TokenCounts:
     ``cache_creation_input_tokens``, which is their sum: the two TTLs are priced
     differently, so a blended total cannot be priced correctly.
     """
-    cache_write = usage.get("cache_creation") or {}
-    output_details = usage.get("output_tokens_details") or {}
-
     return TokenCounts(
-        input=usage.get("input_tokens", 0),
-        output=usage.get("output_tokens", 0),
-        thinking=output_details.get("thinking_tokens", 0),
-        cache_read=usage.get("cache_read_input_tokens", 0),
-        cache_write_5m=cache_write.get("ephemeral_5m_input_tokens", 0),
-        cache_write_1h=cache_write.get("ephemeral_1h_input_tokens", 0),
+        input=_required(usage, "input_tokens", within="usage"),
+        output=_required(usage, "output_tokens", within="usage"),
+        thinking=_nested_count(usage, "output_tokens_details", "thinking_tokens"),
+        cache_read=_required(usage, "cache_read_input_tokens", within="usage") or 0,
+        cache_write_5m=_nested_count(usage, "cache_creation", "ephemeral_5m_input_tokens"),
+        cache_write_1h=_nested_count(usage, "cache_creation", "ephemeral_1h_input_tokens"),
     )
 
 
@@ -65,7 +97,7 @@ class RunRecord:
         return cost_of(self.tokens, model=self.model)
 
 
-def write_run_record(record: RunRecord, *, root: Path) -> Path:
+def write_run_record(record: RunRecord, *, root: Path = DEFAULT_RESULTS_ROOT) -> Path:
     """Store a run record under its experiment and arm, and return where it went.
 
     Only the raw usage is stored. Token counts and cost are derived on read, so a
