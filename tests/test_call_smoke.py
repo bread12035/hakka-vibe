@@ -126,3 +126,17 @@ def test_the_output_style_experiment_runs_all_three_arms(tmp_path: Path) -> None
     assert set(summaries) == set(ARMS)
     for summary in summaries.values():
         assert summary.runs == 3
+
+
+def test_the_pass_by_reference_experiment_runs_all_three_arms(tmp_path: Path) -> None:
+    from anthropic import Anthropic
+
+    from hakka_vibe.experiments.pass_by_reference import run_pass_by_reference_experiment
+
+    summaries = run_pass_by_reference_experiment(
+        Anthropic(), rows=200, model="claude-opus-5", results_root=tmp_path / "results"
+    )
+
+    assert set(summaries) == {"2a", "2b", "2c"}
+    for summary in summaries.values():
+        assert summary.runs == 3

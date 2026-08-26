@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from anthropic import Anthropic
-from anthropic.types import MessageParam, TextBlockParam, ToolParam
+from anthropic.types import MessageParam, TextBlockParam, ToolParam, ToolResultBlockParam
 
 from hakka_vibe.call import DEFAULT_CACHE_TTL, DEFAULT_MAX_TOKENS, CacheTtl
 from hakka_vibe.fixture import fixture_fingerprint
@@ -194,11 +194,11 @@ class FixerAgent:
                 MessageParam(
                     role="user",
                     content=[
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": request.id,
-                            "content": self._invoke(request.name, dict(request.input)),
-                        }
+                        ToolResultBlockParam(
+                            type="tool_result",
+                            tool_use_id=request.id,
+                            content=self._invoke(request.name, dict(request.input)),
+                        )
                         for request in requests
                     ],
                 )
