@@ -28,6 +28,8 @@ Code agent 在對應階段**請主動使用**下列 skills，不要憑感覺直�
 
 **seam 要先跟使用者確認過才寫測試**——這是 `tdd` 的硬規則，不要跳過。
 
+新增檔案放進 `src/hakka_vibe/` 的哪個分類，見下方「新檔案放哪裡」。
+
 ### 4. 定期審核架構 → `code-review` / `improve-codebase-architecture`
 
 - `/code-review`：審查從某個固定點（commit / branch / tag / merge-base）到 `HEAD` 的 diff，兩條軸線並行跑子代理：Standards（是否符合本 repo 規範）與 Spec（是否忠實實作原始 issue）。每次要合併前跑。
@@ -42,6 +44,23 @@ Code agent 在對應階段**請主動使用**下列 skills，不要憑感覺直�
 3. **`nooa-design` 要斷言的 typed field，必須同時是介面的一部分**（公開且文件化）。內部記帳欄位不得被測試斷言 —— 那是 `tdd` 的 side channel 反模式。
 
 理由與被否決的方案見 [ADR-0001](docs/adr/0001-nooa-design-vs-codebase-design.md)。
+
+## 新檔案放哪裡：`src/hakka_vibe/` 的分類
+
+`src/hakka_vibe/` 依角色分四個子套件，不是扁平目錄。寫新模組時（`/implement` 執行任務時一併參考），先按這張表決定放哪裡：
+
+| 子套件 | 放什麼 | 判準 |
+| --- | --- | --- |
+| `agents/` | agent class，一個 class 一個檔 | `nooa-design` 規定：one agent, one class, one file |
+| `seams/` | 至少一組 experiment 會拿來當變因替換的模組 | 這個模組換掉，其他地方的程式碼不用跟著改 |
+| `measurement/` | usage 怎麼來、怎麼記、怎麼算成美元、怎麼彙總成報告 | 不特定屬於某一組 experiment 的量測管線 |
+| `fixture/` | 受測素材的生成與驗收 | 產生或驗收 `fixtures/` 底下那份凍結專案的程式碼 |
+| 根目錄 | 上述四類都共用的基礎設施（如 `prompts.py`、`tool_schema.py`） | 不屬於任何單一分類，被全部分類引用 |
+| `experiments/`（既有，不算這四類之一） | 六組 experiment 各自的 runner | 組裝 seam、跑 arm、寫 `results/` 的那一層 |
+
+新增測試檔放進對應的 `tests/<分類>/`，跟 `src/` 鏡射；橫跨多個分類的整合測試（例如打真實 API 的 smoke test）留在 `tests/` 根目錄。
+
+理由與被否決的方案見 [ADR-0006](docs/adr/0006-src-layout-by-role.md)。
 
 ## 前置設定
 

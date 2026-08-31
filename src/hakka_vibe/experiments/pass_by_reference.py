@@ -16,10 +16,10 @@ from pathlib import Path
 import pandas as pd
 from anthropic import Anthropic
 
-from hakka_vibe.analyst_agent import AnalystAgent
-from hakka_vibe.dataref import DataRef
-from hakka_vibe.experiment import RUNS_PER_ARM, ArmSummary, summarise
-from hakka_vibe.run_record import DEFAULT_RESULTS_ROOT, RunRecord, write_run_record
+from hakka_vibe.agents.analyst import AnalystAgent
+from hakka_vibe.measurement.arm_runner import RUNS_PER_ARM, ArmSummary, summarise
+from hakka_vibe.measurement.run_record import DEFAULT_RESULTS_ROOT, RunRecord, write_run_record
+from hakka_vibe.seams.dataref import DataRef
 
 
 def generate_orders(*, rows: int, seed: int) -> pd.DataFrame:

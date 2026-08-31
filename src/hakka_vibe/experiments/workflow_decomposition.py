@@ -11,8 +11,8 @@ from pathlib import Path
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import Effort, FixerAgent
-from hakka_vibe.experiment import ArmSummary, fresh_copy_of, run_arm
+from hakka_vibe.agents.fixer import Effort, FixerAgent
+from hakka_vibe.measurement.arm_runner import ArmSummary, fresh_copy_of, run_arm
 
 
 @dataclass(frozen=True)

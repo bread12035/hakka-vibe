@@ -13,11 +13,17 @@ from pathlib import Path
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import FixerAgent
-from hakka_vibe.compress import compress
-from hakka_vibe.experiment import RUNS_PER_ARM, ArmSummary, fresh_copy_of, summarise
-from hakka_vibe.run_record import DEFAULT_RESULTS_ROOT, Call, RunRecord, write_run_record
-from hakka_vibe.subagent import DelegationMode, Subagent, context_for_call
+from hakka_vibe.agents.fixer import FixerAgent
+from hakka_vibe.agents.subagent import Subagent
+from hakka_vibe.measurement.arm_runner import RUNS_PER_ARM, ArmSummary, fresh_copy_of, summarise
+from hakka_vibe.measurement.run_record import (
+    DEFAULT_RESULTS_ROOT,
+    Call,
+    RunRecord,
+    write_run_record,
+)
+from hakka_vibe.seams.compress import compress
+from hakka_vibe.seams.delegation import DelegationMode, context_for_call
 
 INVESTIGATION_QUESTIONS = [
     "In two sentences, summarise what src/pipeline/stage_1.py does.",

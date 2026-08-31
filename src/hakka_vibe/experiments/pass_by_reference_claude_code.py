@@ -22,7 +22,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from hakka_vibe.claude_code_adapter import final_assistant_text, run_record_from_transcript
 from hakka_vibe.experiments.pass_by_reference import (
     TopCustomer,
     generate_orders,
@@ -31,7 +30,11 @@ from hakka_vibe.experiments.pass_by_reference import (
     parse_answer,
     top_customer_by_total,
 )
-from hakka_vibe.run_record import RunRecord
+from hakka_vibe.measurement.claude_code_adapter import (
+    final_assistant_text,
+    run_record_from_transcript,
+)
+from hakka_vibe.measurement.run_record import RunRecord
 
 _ANSWER_INSTRUCTION = (
     "When you have the answer, reply with a final line in exactly this form, "

@@ -11,8 +11,8 @@ from pathlib import Path
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import FixerAgent
-from hakka_vibe.experiment import ArmSummary, fresh_copy_of, run_arm
+from hakka_vibe.agents.fixer import FixerAgent
+from hakka_vibe.measurement.arm_runner import ArmSummary, fresh_copy_of, run_arm
 
 DECOY_COUNT = 30
 

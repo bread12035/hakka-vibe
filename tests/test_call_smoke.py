@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from hakka_vibe.call import record_one_call
-from hakka_vibe.run_record import read_run_record, write_run_record
+from hakka_vibe.measurement.call import record_one_call
+from hakka_vibe.measurement.run_record import read_run_record, write_run_record
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("ANTHROPIC_API_KEY"),
@@ -43,7 +43,7 @@ def test_the_agent_fixes_the_fixture_and_records_what_it_cost(tmp_path: Path) ->
 
     from anthropic import Anthropic
 
-    from hakka_vibe.agent import FixerAgent
+    from hakka_vibe.agents.fixer import FixerAgent
 
     workspace = tmp_path / "pipeline"
     shutil.copytree("fixtures/pipeline", workspace)
@@ -65,8 +65,8 @@ def test_an_arm_runs_three_times_and_summarises(tmp_path: Path) -> None:
 
     from anthropic import Anthropic
 
-    from hakka_vibe.agent import FixerAgent
-    from hakka_vibe.experiment import RUNS_PER_ARM, run_arm
+    from hakka_vibe.agents.fixer import FixerAgent
+    from hakka_vibe.measurement.arm_runner import RUNS_PER_ARM, run_arm
 
     def fresh_fixture(run: int) -> Path:
         workspace = tmp_path / f"run-{run}"
@@ -186,7 +186,7 @@ def test_the_subagent_architecture_experiment_runs_all_three_arms(tmp_path: Path
     from anthropic import Anthropic
 
     from hakka_vibe.experiments.subagent_architecture import run_subagent_experiment
-    from hakka_vibe.subagent import DelegationMode
+    from hakka_vibe.seams.delegation import DelegationMode
 
     fixture = tmp_path / "pipeline"
     shutil.copytree("fixtures/pipeline", fixture)

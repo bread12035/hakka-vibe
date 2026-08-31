@@ -11,10 +11,10 @@ from pathlib import Path
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import FixerAgent
-from hakka_vibe.call import CacheTtl
-from hakka_vibe.experiment import ArmSummary, fresh_copy_of, run_arm
-from hakka_vibe.prompt_layout import PromptLayout
+from hakka_vibe.agents.fixer import FixerAgent
+from hakka_vibe.measurement.arm_runner import ArmSummary, fresh_copy_of, run_arm
+from hakka_vibe.measurement.call import CacheTtl
+from hakka_vibe.seams.prompt_layout import PromptLayout
 
 
 @dataclass(frozen=True)

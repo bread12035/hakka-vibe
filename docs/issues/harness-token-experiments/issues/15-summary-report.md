@@ -17,7 +17,7 @@
 
 **狀態為 in-progress：目前沒有任何真實 run 資料**——14 張前置票全部還在等憑證。這張票
 交付的是**報告產生器本身**，不是報告的實際內容；產生器已對合成資料完整驗證，等你在地端
-跑過真實 experiment，`uv run python -m hakka_vibe.report` 就能把 `results/` 底下累積的
+跑過真實 experiment，`uv run python -m hakka_vibe.measurement.report` 就能把 `results/` 底下累積的
 紀錄轉成 `results/REPORT.md`。目前產出的版本只有一句「還沒有資料」加上固定的限制段落，
 已隨此 commit 一併生成、進版控。
 
