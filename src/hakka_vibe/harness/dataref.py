@@ -1,10 +1,11 @@
-"""DataRef: a thin reference to in-process data, per ADR-0004.
+"""Experiment 2's variable: a thin, in-process reference to data too large to
+put in a prompt.
 
-Deliberately no query, describe, or sample methods. Adding one would restore a
-per-call round trip for every question the model wants answered — exactly the
-cost pass by reference exists to remove. Instead the model writes its own code
-against ``raw``, run by hakka_vibe.sandbox, and only what that code chooses to
-print becomes prompt characters.
+Deliberately no query, describe, or sample methods — adding one would restore
+a per-call round trip for every question the model wants answered, exactly the
+cost pass-by-reference exists to remove. The model instead writes its own code
+against ``raw`` (run by harness/sandbox.py), and only what that code chooses
+to print becomes prompt characters.
 """
 
 import sqlite3

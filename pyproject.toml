@@ -3,7 +3,10 @@ name = "hakka-vibe"
 version = "0.1.0"
 description = "Agent harness and token cost experiments"
 requires-python = ">=3.11"
-dependencies = ["anthropic>=0.40", "pandas>=2.0"]
+dependencies = ["anthropic>=0.40", "pandas>=2.0", "python-dotenv>=1.0"]
+
+[project.scripts]
+hakka-vibe = "hakka_vibe.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "mypy>=1.11", "ruff>=0.6", "pandas-stubs>=2.0"]

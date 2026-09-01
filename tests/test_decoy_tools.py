@@ -1,6 +1,6 @@
 """Decoy tool generation: the noise experiment 4 buries the real tools in."""
 
-from hakka_vibe.decoy_tools import generate_decoy_tools
+from hakka_vibe.harness.decoy_tools import generate_decoy_tools
 
 
 def test_it_generates_the_requested_count() -> None:
@@ -14,5 +14,4 @@ def test_every_decoy_has_a_distinct_name() -> None:
 
 
 def test_the_same_seed_produces_the_same_tools() -> None:
-    # Runs are spread over days; a drifting tool set makes runs incomparable.
     assert generate_decoy_tools(count=20, seed=5) == generate_decoy_tools(count=20, seed=5)

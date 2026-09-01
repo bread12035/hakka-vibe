@@ -1,31 +1,30 @@
-"""Ticket 15: the summary report over whatever run records exist.
+"""The summary report over whatever run records currently exist in results/.
 
-No arm has real data as of this ticket — every experiment is in-progress
-pending credentials. This builds and tests the generator against synthetic
-records; running it for real, once results/ has real runs in it, is what
-produces the report the spec actually wants.
+Never raises on missing or partial data: real experiments complete arms one
+at a time, not all at once, so an arm with fewer than three runs is reported
+as incomplete rather than crashing the whole report.
 """
 
 import json
 from pathlib import Path
 
-from hakka_vibe.experiment import RUNS_PER_ARM, ArmSummary, summarise
-from hakka_vibe.run_record import Call, RunRecord
+from hakka_vibe.measurement.run_record import DEFAULT_RESULTS_ROOT, Call, RunRecord
+from hakka_vibe.runner import RUNS_PER_ARM, ArmSummary, summarise
 
 CLAUDE_CODE_ARMS = {"2d", "2e"}
 """Arms executed under Claude Code rather than the self-built harness. Their
 cache writes are fixed at the 1 hour TTL — Claude Code's own behaviour, not a
 setting this project controls — so their percentages never belong in the same
-table as the self-built harness's 5-minute-TTL results (ADR-0002)."""
+table as the self-built harness's 5-minute-TTL results."""
 
 KNOWN_LIMITATIONS = """\
 ## Known limitations
 
-- The fixture is synthetic (ADR-0003). Relative differences between arms are
+- The fixture is synthetic. Relative differences between arms are
   trustworthy; absolute dollar figures do not transfer to real projects.
-- The fixture-generating model and the model under measurement are in the same
-  family, a validity threat the mechanically-injected bug reduces but does not
-  remove.
+- The fixture-generating model and the model under measurement are in the
+  same family, a validity threat the mechanically-injected bug reduces but
+  does not remove.
 - Self-built-harness results (5 minute cache TTL) and Claude Code results
   (fixed 1 hour TTL) are priced on different bases and are not comparable to
   each other, even for the same nominal experiment.
@@ -84,12 +83,7 @@ def _arm_section(experiment: str, arm: str, records: list[RunRecord]) -> str:
 
 
 def build_report(results_root: Path) -> str:
-    """Render whatever is under ``results_root`` into a Markdown summary.
-
-    Never raises on missing or partial data: an arm with fewer than three runs
-    is reported as incomplete rather than crashing the whole report, since
-    real experiments will complete arms one at a time, not all at once.
-    """
+    """Render whatever is under ``results_root`` into a Markdown summary."""
     arms = _found_arms(results_root)
     lines = ["# Harness token cost experiments — summary report", ""]
 
@@ -110,8 +104,6 @@ def build_report(results_root: Path) -> str:
 
 def main() -> None:
     """Regenerate results/REPORT.md from whatever is currently in results/."""
-    from hakka_vibe.run_record import DEFAULT_RESULTS_ROOT
-
     report = build_report(DEFAULT_RESULTS_ROOT)
     (DEFAULT_RESULTS_ROOT / "REPORT.md").write_text(report)
 

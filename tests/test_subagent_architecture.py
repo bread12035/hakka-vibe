@@ -1,6 +1,6 @@
 """Subagent architecture experiment: what's testable without a call."""
 
-from hakka_vibe.subagent import DelegationMode
+from hakka_vibe.agents.subagent import DelegationMode
 
 
 def test_the_three_modes_map_to_the_spec_arm_ids() -> None:

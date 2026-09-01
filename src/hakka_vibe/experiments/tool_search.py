@@ -1,9 +1,10 @@
 """Experiment 4a-4b: dynamic tool selection (self-built harness).
 
-Both arms carry the same 30 decoy tools the task never calls; they differ only
-in whether those decoys are exposed directly (4a) or deferred behind tool
-search (4b). The Claude Code half of this experiment is a separate, manual
-procedure — see claude_code_adapter for how its transcripts are graded.
+Both arms carry the same 30 decoy tools the task never calls; they differ
+only in whether those decoys are exposed directly (4a) or deferred behind
+tool search (4b). The Claude Code half of this experiment is a separate,
+manual procedure — see measurement/claude_code_adapter.py for how its
+transcripts are graded.
 """
 
 from dataclasses import dataclass
@@ -11,8 +12,9 @@ from pathlib import Path
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import FixerAgent
-from hakka_vibe.experiment import ArmSummary, fresh_copy_of, run_arm
+from hakka_vibe.agents.fixer import fix
+from hakka_vibe.measurement.run_record import RunRecord
+from hakka_vibe.runner import ArmSummary, fresh_copy_of, run_arm
 
 DECOY_COUNT = 30
 
@@ -40,15 +42,18 @@ def run_tool_search_experiment(
     summaries: dict[str, ArmSummary] = {}
     for arm, config in ARMS.items():
 
-        def agent_for(run: int, *, config: ArmConfig = config, arm: str = arm) -> FixerAgent:
-            return FixerAgent(
-                client=client,
-                workspace=fresh_copy_of(fixture, arm, run),
-                model=model,
+        def run_for(run: int, *, config: ArmConfig = config, arm: str = arm) -> RunRecord:
+            return fix(
+                client,
+                fresh_copy_of(fixture, arm, run),
+                model,
+                experiment="4",
+                arm=arm,
+                run=run,
                 decoy_tools=config.decoy_tools,
                 use_tool_search=config.use_tool_search,
             )
 
         kwargs = {"results_root": results_root} if results_root is not None else {}
-        summaries[arm] = run_arm(experiment="4", arm=arm, agent_for=agent_for, **kwargs)
+        summaries[arm] = run_arm(experiment="4", arm=arm, run_for=run_for, **kwargs)
     return summaries

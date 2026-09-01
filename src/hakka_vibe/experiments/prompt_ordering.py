@@ -1,8 +1,8 @@
 """Experiment 1a-1e: prompt ordering, compaction, and TTL.
 
-1a-1c vary layout only. 1d holds the baseline layout and turns on compaction to
-observe cache behaviour once it triggers. 1e holds everything about 1a fixed
-except the TTL, so it isolates whether the 1 hour write rate buys back its
+1a-1c vary layout only. 1d holds the baseline layout and turns on compaction
+to observe cache behaviour once it triggers. 1e holds everything about 1a
+fixed except the TTL, isolating whether the 1 hour write rate buys back its
 2x cost in hit rate.
 """
 
@@ -11,10 +11,11 @@ from pathlib import Path
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import FixerAgent
-from hakka_vibe.call import CacheTtl
-from hakka_vibe.experiment import ArmSummary, fresh_copy_of, run_arm
-from hakka_vibe.prompt_layout import PromptLayout
+from hakka_vibe.agents.fixer import DEFAULT_MAX_TURNS, fix
+from hakka_vibe.harness.call import CacheTtl
+from hakka_vibe.harness.prompt_layout import PromptLayout
+from hakka_vibe.measurement.run_record import RunRecord
+from hakka_vibe.runner import ArmSummary, fresh_copy_of, run_arm
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class ArmConfig:
     layout: PromptLayout
     cache_ttl: CacheTtl = "5m"
     compaction: bool = False
-    max_turns: int = FixerAgent.max_turns
+    max_turns: int = DEFAULT_MAX_TURNS
 
 
 ARMS: dict[str, ArmConfig] = {
@@ -45,11 +46,14 @@ def run_prompt_ordering_experiment(
     summaries: dict[str, ArmSummary] = {}
     for arm, config in ARMS.items():
 
-        def agent_for(run: int, *, config: ArmConfig = config, arm: str = arm) -> FixerAgent:
-            return FixerAgent(
-                client=client,
-                workspace=fresh_copy_of(fixture, arm, run),
-                model=model,
+        def run_for(run: int, *, config: ArmConfig = config, arm: str = arm) -> RunRecord:
+            return fix(
+                client,
+                fresh_copy_of(fixture, arm, run),
+                model,
+                experiment="1",
+                arm=arm,
+                run=run,
                 prompt_layout=config.layout,
                 cache_ttl=config.cache_ttl,
                 compaction=config.compaction,
@@ -57,5 +61,5 @@ def run_prompt_ordering_experiment(
             )
 
         kwargs = {"results_root": results_root} if results_root is not None else {}
-        summaries[arm] = run_arm(experiment="1", arm=arm, agent_for=agent_for, **kwargs)
+        summaries[arm] = run_arm(experiment="1", arm=arm, run_for=run_for, **kwargs)
     return summaries

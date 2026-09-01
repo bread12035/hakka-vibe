@@ -1,21 +1,34 @@
-"""Cost model: turn token counts into money.
+"""Cost model: price token counts in USD.
 
-All experiment conclusions are stated in USD rather than token totals, because
-the token classes differ in price by up to an order of magnitude and a raw
-total silently misrepresents what a change actually saved. See ADR-0002.
+Every experiment's conclusion is stated in dollars, not raw token totals — the
+token classes span an order of magnitude in price, so a raw sum silently
+misrepresents what a change actually saved.
 """
 
 from dataclasses import dataclass
 from decimal import Decimal
 
+_MTOK = Decimal(1_000_000)
+
+# USD per million tokens, (input, output). Cache classes are multipliers on
+# the model's own input price, not separate absolute prices.
+_USD_PER_MTOK: dict[str, tuple[Decimal, Decimal]] = {
+    "claude-opus-5": (Decimal("5.00"), Decimal("25.00")),
+    "claude-sonnet-5": (Decimal("2.00"), Decimal("10.00")),
+    "claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
+}
+
+_CACHE_READ_MULTIPLIER = Decimal("0.1")
+_CACHE_WRITE_5M_MULTIPLIER = Decimal("1.25")
+_CACHE_WRITE_1H_MULTIPLIER = Decimal(2)
+
 
 @dataclass(frozen=True)
 class TokenCounts:
-    """Token usage for one call, split by the classes that are priced differently.
+    """One call's usage, split by the classes the cost model prices differently.
 
-    ``thinking`` is a breakdown of ``output``, not a separate class: the API
-    reports it inside ``output_tokens``. It is carried so experiments can observe
-    reasoning spend, and is deliberately not priced again.
+    ``thinking`` is a breakdown of ``output`` (the API reports it nested
+    inside output_tokens), carried for visibility and never priced twice.
     """
 
     input: int = 0
@@ -38,7 +51,7 @@ class TokenCounts:
 
 @dataclass(frozen=True)
 class Cost:
-    """A priced breakdown, in USD."""
+    """A priced breakdown, in USD, by the same classes as ``TokenCounts``."""
 
     input: Decimal
     output: Decimal
@@ -62,13 +75,6 @@ class Cost:
         )
 
 
-# (input, output) USD per MTok. Cache classes are multipliers on the input price.
-_USD_PER_MTOK = {
-    "claude-opus-5": (Decimal("5.00"), Decimal("25.00")),
-    "claude-sonnet-5": (Decimal("2.00"), Decimal("10.00")),
-    "claude-haiku-4-5": (Decimal("1.00"), Decimal("5.00")),
-}
-
 ZERO_COST = Cost(
     input=Decimal(0),
     output=Decimal(0),
@@ -77,15 +83,9 @@ ZERO_COST = Cost(
     cache_write_1h=Decimal(0),
 )
 
-_MTOK = Decimal(1_000_000)
-
-# Multipliers on the model's input price, per ADR-0002.
-_CACHE_READ_MULTIPLIER = Decimal("0.1")
-_CACHE_WRITE_5M_MULTIPLIER = Decimal("1.25")
-_CACHE_WRITE_1H_MULTIPLIER = Decimal(2)
-
 
 def cost_of(tokens: TokenCounts, *, model: str) -> Cost:
+    """Price one call's token counts at ``model``'s own rate card."""
     input_price, output_price = _USD_PER_MTOK[model]
 
     def priced(count: int, multiplier: Decimal = Decimal(1)) -> Decimal:

@@ -1,8 +1,8 @@
-"""Experiment 2a-2c: pass by reference.
+"""Experiment 2a-2c: pass by reference (self-built harness).
 
-Compares three ways of getting a large dataset in front of the model: the full
-text in context (2a), an in-process DataFrame behind a DataRef (2b), and a
-SQLite connection behind a DataRef (2c). Pass/fail is whether the analysis
+Compares three ways of getting a large dataset in front of the model: the
+full text in context (2a), an in-process DataFrame behind a DataRef (2b), and
+a SQLite connection behind a DataRef (2c). Pass/fail is whether the analysis
 answer is numerically correct — independent of how the data reached the model.
 """
 
@@ -16,10 +16,10 @@ from pathlib import Path
 import pandas as pd
 from anthropic import Anthropic
 
-from hakka_vibe.analyst_agent import AnalystAgent
-from hakka_vibe.dataref import DataRef
-from hakka_vibe.experiment import RUNS_PER_ARM, ArmSummary, summarise
-from hakka_vibe.run_record import DEFAULT_RESULTS_ROOT, RunRecord, write_run_record
+from hakka_vibe.agents.analyst import analyse
+from hakka_vibe.harness.dataref import DataRef
+from hakka_vibe.measurement.run_record import DEFAULT_RESULTS_ROOT, RunRecord, write_run_record
+from hakka_vibe.runner import RUNS_PER_ARM, ArmSummary, summarise
 
 
 def generate_orders(*, rows: int, seed: int) -> pd.DataFrame:
@@ -40,11 +40,8 @@ class TopCustomer:
 
 
 def top_customer_by_total(orders: pd.DataFrame) -> TopCustomer:
-    """The known-correct answer, computed once when the task is set up.
-
-    Independent of whichever method — pandas, SQL, a hand loop — the agent
-    under measurement chooses to use.
-    """
+    """The known-correct answer, independent of whichever method — pandas,
+    SQL, a hand loop — the agent under measurement chooses to use."""
     totals = orders.groupby("customer_id")["amount"].sum()
     winner = totals.idxmax()
     return TopCustomer(customer_id=int(winner), total=round(float(totals[winner]), 2))
@@ -63,8 +60,8 @@ _ANSWER_LINE = re.compile(r"ANSWER:\s*(\d+)\s+([\d.]+)")
 def parse_answer(text: str) -> TopCustomer | None:
     """Read the agent's final "ANSWER: <customer_id> <total>" line, if present.
 
-    None means the run gave no parseable answer — a fail, distinct from a
-    wrong answer, but both are failures under the gate.
+    None means no parseable answer — a fail, distinct from a wrong answer, but
+    both fail the gate.
     """
     match = _ANSWER_LINE.search(text)
     if match is None:
@@ -75,11 +72,7 @@ def parse_answer(text: str) -> TopCustomer | None:
 def matches_expected(
     answer: TopCustomer, expected: TopCustomer, *, tolerance: float = 0.01
 ) -> bool:
-    """Whether an answer counts as correct: right customer, total within a cent.
-
-    The tolerance absorbs floating-point rounding in whatever method the agent
-    used, not disagreement about which customer or how much.
-    """
+    """Whether an answer counts as correct: right customer, total within a cent."""
     return (
         answer.customer_id == expected.customer_id
         and abs(answer.total - expected.total) <= tolerance
@@ -87,19 +80,14 @@ def matches_expected(
 
 
 def orders_as_csv_text(orders: pd.DataFrame) -> str:
-    """The dataset serialized whole, for arm 2a's pass-by-value baseline.
-
-    Its full contents become prompt characters — the very thing the test in
-    ADR-0004 asks: is that true regardless of the query engine? Here there is
-    no query engine at all; the text simply is the data.
-    """
+    """The dataset serialized whole, for arm 2a's pass-by-value baseline."""
     return orders.to_csv(index=False)
 
 
 @dataclass(frozen=True)
 class ArmSetup:
-    """What one arm of experiment 2 gives the analyst: a live reference or not,
-    and the task context text the agent starts from."""
+    """What one arm gives the analyst: a live reference or not, and the task
+    context text it starts from."""
 
     data: DataRef | None
     task_context: str
@@ -136,9 +124,9 @@ def run_pass_by_reference_experiment(
 ) -> dict[str, ArmSummary]:
     """Run 2a through 2c and return each arm's summary, keyed by arm id.
 
-    Unlike the file-editing experiments, no fixture copy is needed between
-    runs: the dataset is read-only here, and each run gets its own AnalystAgent
-    with a fresh namespace, so nothing carries over between runs by accident.
+    No fixture copy is needed between runs: the dataset is read-only, and
+    each run starts with its own fresh namespace, so nothing carries over by
+    accident.
     """
     orders = generate_orders(rows=rows, seed=seed)
     expected = top_customer_by_total(orders)
@@ -148,9 +136,14 @@ def run_pass_by_reference_experiment(
     for arm, setup in arms.items():
         records: list[RunRecord] = []
         for run in range(1, RUNS_PER_ARM + 1):
-            agent = AnalystAgent(client=client, model=model, data=setup.data)
-            record, text = agent.analyse(
-                task_context=setup.task_context, experiment="2", arm=arm, run=run
+            record, text = analyse(
+                client,
+                model,
+                task_context=setup.task_context,
+                data=setup.data,
+                experiment="2",
+                arm=arm,
+                run=run,
             )
             answer = parse_answer(text)
             gated = dataclasses.replace(

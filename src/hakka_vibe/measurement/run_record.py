@@ -1,8 +1,11 @@
-"""Run records: what one run of one arm cost, and the raw usage behind it.
+"""RunRecord: what one run of one arm cost, built from raw usage.
 
-This is the seam the experiments are tested at. Two adapters feed it — the API
-response and a Claude Code session transcript — and both report usage under the
-same field names, so the parsing below serves either.
+This is the project's primary seam. Two real adapters feed it — an Anthropic
+API response, and a Claude Code session transcript (measurement/claude_code_
+adapter.py) — both reporting usage under the same field names, so one parser
+serves either. It is a pure, no-network boundary: pricing errors here would
+silently invalidate every run's conclusion, so this is where test density
+belongs.
 """
 
 import json
@@ -11,49 +14,30 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hakka_vibe.cost import ZERO_COST, Cost, TokenCounts, cost_of
-
-__all__ = [
-    "DEFAULT_RESULTS_ROOT",
-    "Call",
-    "RunRecord",
-    "read_run_record",
-    "token_counts_from_usage",
-    "write_run_record",
-]
+from hakka_vibe.measurement.cost import ZERO_COST, Cost, TokenCounts, cost_of
 
 DEFAULT_RESULTS_ROOT = Path("results")
-"""Where run records live, relative to the repo root, and under version control.
-
-Every run of every arm is kept, so a later question can be answered by
-re-reading the raw usage instead of re-running 72 billable runs.
-"""
+"""Every run of every arm lands here, under version control, keyed by
+experiment/arm/run — so a later question can be answered by re-reading raw
+usage instead of re-running a billable arm."""
 
 
 class UsageFieldMissing(KeyError):
     """A usage mapping lacked a field the cost model prices.
 
-    Raised rather than defaulting to zero: a silently absent field prices that
-    token class at $0, which does not fail, does not warn, and quietly
-    invalidates every conclusion drawn from the run.
+    Raised rather than defaulted to zero: a silently-absent field prices that
+    token class at $0 with no failure and no warning, quietly invalidating
+    every conclusion drawn from the run.
     """
 
 
 def _required(mapping: Mapping[str, Any], field: str, *, within: str) -> Any:
     if field not in mapping:
-        raise UsageFieldMissing(
-            f"{within} has no {field!r}: refusing to price it as zero. "
-            f"Present fields: {sorted(mapping)}"
-        )
+        raise UsageFieldMissing(f"{within} has no {field!r}. Present fields: {sorted(mapping)}")
     return mapping[field]
 
 
 def _nested_count(usage: Mapping[str, Any], container: str, field: str) -> int:
-    """Read a count out of an optional nested detail object.
-
-    The container is absent-as-null when there is nothing to report, but when it
-    is present the field inside it must be too.
-    """
     nested = _required(usage, container, within="usage")
     if nested is None:
         return 0
@@ -61,11 +45,11 @@ def _nested_count(usage: Mapping[str, Any], container: str, field: str) -> int:
 
 
 def token_counts_from_usage(usage: Mapping[str, Any]) -> TokenCounts:
-    """Read token counts out of a usage mapping.
+    """Read token counts out of one API-shaped usage mapping.
 
-    Cache writes come from the per-TTL split rather than
-    ``cache_creation_input_tokens``, which is their sum: the two TTLs are priced
-    differently, so a blended total cannot be priced correctly.
+    Cache writes come from the per-TTL split, not ``cache_creation_input_
+    tokens`` (their sum) — the two TTLs price differently, so a blended total
+    can't be priced correctly.
     """
     return TokenCounts(
         input=_required(usage, "input_tokens", within="usage"),
@@ -81,10 +65,9 @@ def token_counts_from_usage(usage: Mapping[str, Any]) -> TokenCounts:
 class Call:
     """One call's raw usage and the model that produced it.
 
-    Priced per call rather than once for the whole run: a Claude Code session
-    can switch models mid-conversation — confirmed on this project's own
-    transcripts — and pricing a mixed run at one model over- or undercharges
-    whichever calls ran on the other one.
+    Priced per call, not once for a whole run: a Claude Code session can
+    switch models mid-conversation, and pricing a mixed run at one model
+    over- or under-charges whichever calls ran on the other.
     """
 
     model: str
@@ -101,30 +84,19 @@ class Call:
 
 @dataclass(frozen=True)
 class RunRecord:
-    """One run of one arm: what it was, whether it passed, and what it cost."""
+    """One run of one arm: identity, every call it made, and whether it passed."""
 
     experiment: str
     arm: str
     run: int
     model: str
-    """The model this run was configured for. Reporting label, not the pricing
-    input — each call carries and is priced at its own model."""
+    """The model this run was configured for — a reporting label; each call is
+    still priced at its own model, in case of a mid-run switch."""
     calls: tuple[Call, ...]
-    """Every call the run took, in order, verbatim.
-
-    A run is a whole task, so it spans many calls. They are kept separately
-    because summing before storing loses where in a task the cost went.
-    """
     passed: bool | None = None
-    """Whether the run met its task's gate, or None where no gate applies."""
-
     fixture: str | None = None
-    """Fingerprint of the fixture this run was measured on.
-
-    A fixture is deepened and regenerated when it proves too easy, and results
-    from before that are not comparable with results from after. Recording which
-    version a run used is what keeps the two apart.
-    """
+    """Fingerprint of the fixture this run was measured on, so a later
+    deepening-and-regeneration can't get silently compared against it."""
 
     @property
     def tokens(self) -> TokenCounts:
@@ -142,11 +114,11 @@ class RunRecord:
 
 
 def write_run_record(record: RunRecord, *, root: Path = DEFAULT_RESULTS_ROOT) -> Path:
-    """Store a run record under its experiment and arm, and return where it went.
+    """Store a run record under its experiment/arm/run, and return the path.
 
-    Only the raw usage is stored. Token counts and cost are derived on read, so a
-    correction to the cost model reprices every past run instead of stranding
-    them at whatever the model said on the day they were written.
+    Only raw usage is stored — cost is derived on read, so a correction to the
+    pricing table reprices every past run instead of stranding them at
+    whatever it said the day they were written.
     """
     path = root / record.experiment / record.arm / f"{record.run}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -176,6 +148,6 @@ def read_run_record(path: Path) -> RunRecord:
         run=stored["run"],
         model=stored["model"],
         passed=stored["passed"],
-        fixture=stored["fixture"],
+        fixture=stored.get("fixture"),
         calls=tuple(Call(model=c["model"], usage=c["usage"]) for c in stored["calls"]),
     )

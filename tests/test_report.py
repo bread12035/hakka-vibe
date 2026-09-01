@@ -1,15 +1,14 @@
 """Summary report tests.
 
-No real run data exists yet — every arm is still in-progress pending
-credentials. What's testable is the report generator itself: given whatever
-run records are on disk, does it group, price, and label them correctly. The
-tests write synthetic records via write_run_record and read the report back.
+What's testable is the report generator itself: given whatever run records
+are on disk, does it group, price, and label them correctly. The tests write
+synthetic records via write_run_record and read the report back.
 """
 
 from pathlib import Path
 
+from hakka_vibe.measurement.run_record import Call, RunRecord, write_run_record
 from hakka_vibe.report import build_report
-from hakka_vibe.run_record import Call, RunRecord, write_run_record
 
 USAGE = {
     "input_tokens": 100,
@@ -69,18 +68,13 @@ def test_claude_code_arms_are_labelled_separately_from_the_self_built_harness(
 
     report = build_report(tmp_path)
 
-    # 2d/2e write cache at Claude Code's fixed 1-hour TTL; 2a-2c are the
-    # self-built harness's 5-minute-TTL results. Different pricing basis, so
-    # they must never appear in one comparable table.
-    assert "not comparable" in report.lower() or "不可跨比" in report
+    assert "not comparable" in report.lower()
 
 
 def test_an_empty_results_directory_still_produces_a_report(tmp_path: Path) -> None:
-    # The report is the deliverable even before any run has executed: it
-    # should state its own known limitations regardless of what data exists.
     report = build_report(tmp_path)
 
-    assert "synthetic" in report.lower() or "合成" in report
+    assert "synthetic" in report.lower()
 
 
 def test_the_known_limitations_are_always_present(tmp_path: Path) -> None:
@@ -88,4 +82,4 @@ def test_the_known_limitations_are_always_present(tmp_path: Path) -> None:
 
     report = build_report(tmp_path)
 
-    assert "do not transfer" in report.lower() or "不可外推" in report
+    assert "do not transfer" in report.lower()

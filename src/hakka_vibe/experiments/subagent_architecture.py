@@ -3,21 +3,27 @@
 Before fixing the fixture, the orchestrator delegates two investigation
 questions to a cheaper-model subagent — one per non-entry module — and folds
 the findings into its own briefing. What varies between arms is only how each
-delegation's context is assembled and whether the subagent persists; the
-investigation questions, the orchestrator model, and the eventual fix loop are
-identical across arms.
+delegation's context is assembled and whether the subagent's conversation
+persists; the investigation questions, the orchestrator model, and the
+eventual fix loop are identical across arms.
 """
 
 import dataclasses
 from pathlib import Path
 
 from anthropic import Anthropic
+from anthropic.types import MessageParam
 
-from hakka_vibe.agent import FixerAgent
-from hakka_vibe.compress import compress
-from hakka_vibe.experiment import RUNS_PER_ARM, ArmSummary, fresh_copy_of, summarise
-from hakka_vibe.run_record import DEFAULT_RESULTS_ROOT, Call, RunRecord, write_run_record
-from hakka_vibe.subagent import DelegationMode, Subagent, context_for_call
+from hakka_vibe.agents.fixer import fix
+from hakka_vibe.agents.subagent import DelegationMode, ask, context_for_call
+from hakka_vibe.harness.compress import compress
+from hakka_vibe.measurement.run_record import (
+    DEFAULT_RESULTS_ROOT,
+    Call,
+    RunRecord,
+    write_run_record,
+)
+from hakka_vibe.runner import RUNS_PER_ARM, ArmSummary, fresh_copy_of, summarise
 
 INVESTIGATION_QUESTIONS = [
     "In two sentences, summarise what src/pipeline/stage_1.py does.",
@@ -26,8 +32,8 @@ INVESTIGATION_QUESTIONS = [
 
 ORCHESTRATOR_MODEL = "claude-opus-5"
 SUBAGENT_MODEL = "claude-sonnet-5"
-"""Subagent runs on the cheaper model per the spec; the model variable is kept
-separate from the architecture variable when the results are analysed."""
+"""The subagent runs on the cheaper model per the spec; that model variable is
+kept separate from the architecture variable when results are analysed."""
 
 
 def _delegate_investigation(
@@ -36,17 +42,18 @@ def _delegate_investigation(
     """Run the fixed investigation sequence under one delegation mode.
 
     Returns the findings and every call spent getting them — subagent calls,
-    plus any compression calls the mode required — so the caller can fold both
-    into the run's total.
+    plus any compression calls the mode required — so the caller can fold
+    both into the run's total.
     """
     findings: list[str] = []
     history: list[str] = []
     spent: list[Call] = []
-    subagent = Subagent(client=client, model=SUBAGENT_MODEL, workspace=workspace)
+    conversation: list[MessageParam] = []
 
     for index, question in enumerate(INVESTIGATION_QUESTIONS):
         if mode is not DelegationMode.PERSISTENT:
-            subagent = Subagent(client=client, model=SUBAGENT_MODEL, workspace=workspace)
+            # A brand new subagent every call has no memory of its own.
+            conversation = []
 
         compressed = None
         if mode is DelegationMode.FRESH_COMPRESSED and history:
@@ -65,9 +72,10 @@ def _delegate_investigation(
             new_turns=history[-1:] if index > 0 else [],
         )
 
-        before = len(subagent.calls)
-        answer = subagent.ask(question, context=context)
-        spent.extend(subagent.calls[before:])
+        answer, ask_calls, conversation = ask(
+            client, SUBAGENT_MODEL, workspace, question, context=context, conversation=conversation
+        )
+        spent.extend(ask_calls)
 
         findings.append(answer)
         history.append(f"Q: {question}\nA: {answer}")
@@ -92,13 +100,15 @@ def run_subagent_experiment(
                 client, mode=mode, workspace=workspace
             )
 
-            fixer = FixerAgent(
-                client=client,
-                workspace=workspace,
-                model=ORCHESTRATOR_MODEL,
+            record = fix(
+                client,
+                workspace,
+                ORCHESTRATOR_MODEL,
+                experiment="3",
+                arm=arm,
+                run=run,
                 briefing="\n".join(findings),
             )
-            record = fixer.fix(experiment="3", arm=arm, run=run)
             gated = dataclasses.replace(record, calls=(*delegation_calls, *record.calls))
             write_run_record(
                 gated, root=results_root if results_root is not None else DEFAULT_RESULTS_ROOT

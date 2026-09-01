@@ -1,18 +1,22 @@
-"""Compressing investigation history for arm 3b's handoff.
+"""Compressing investigation history for subagent arm 3b's handoff.
 
-The compression call runs on the orchestrator's own model and its cost belongs
-to the arm that asked for it, not to whatever the subagent does with the
-result — ADR-0002. The caller is responsible for folding the returned Call
-into that arm's run record; this function only produces the summary and the
-call that produced it.
+The compression call runs on the orchestrator's own model, and its cost
+belongs to the arm that asked for it — not to whatever the subagent does with
+the result. The caller folds the returned ``Call`` into that arm's run record;
+this function only produces the summary and the call that made it.
 """
 
 from anthropic import Anthropic
 
-from hakka_vibe.agent import DEFAULT_EFFORT, Effort
-from hakka_vibe.call import DEFAULT_CACHE_TTL, DEFAULT_MAX_TOKENS, CacheTtl
-from hakka_vibe.prompts import PromptSet
-from hakka_vibe.run_record import Call
+from hakka_vibe.harness.call import (
+    DEFAULT_CACHE_TTL,
+    DEFAULT_EFFORT,
+    DEFAULT_MAX_TOKENS,
+    CacheTtl,
+    Effort,
+)
+from hakka_vibe.harness.prompts import PromptSet
+from hakka_vibe.measurement.run_record import Call
 
 
 def compress(

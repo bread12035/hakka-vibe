@@ -1,14 +1,12 @@
-"""Generate the frozen project an agent is measured on.
+"""Generate the frozen project an agent is measured against.
 
-Generated rather than taken from a real repository so that difficulty is a dial
-the experiments can turn: every experiment needs eight or more turns of
-accumulated context to show a signal, and a fixture that resolves in three
-turns produces none (ADR-0003).
+Generated rather than taken from a real repository so difficulty is a dial:
+every experiment needs eight or more turns of accumulated context to show a
+signal, and a fixture that resolves in three turns produces none.
 
-The bug is chosen by seeded random selection among sites the generator emits,
-not by anyone deciding where a bug would be interesting to hide. Where it lands
-is a random variable, so it cannot be tuned to what a solver happens to look at
-first.
+A mutation site is chosen by seeded random selection among sites the generator
+itself finds effective — never by a person deciding where a bug would be
+interesting to hide, which is a variable the experiments don't want.
 """
 
 import hashlib
@@ -25,8 +23,6 @@ PIPELINE_INPUT = 7
 
 @dataclass(frozen=True)
 class MutationSite:
-    """One line that can be mutated, and what mutating it produces."""
-
     module: Path
     line: int
     kind: str
@@ -38,8 +34,8 @@ class MutationSite:
 class Fixture:
     """A generated project and the sites a bug can be injected at.
 
-    The sites are held in memory and never written inside the fixture: a file
-    listing where a bug could be would hand the agent the answer.
+    Sites are held in memory, never written inside the fixture itself — a
+    file listing where a bug could be would hand the agent the answer.
     """
 
     root: Path
@@ -77,7 +73,6 @@ def refine(value: int) -> int:
 
 
 def _mutations_for(source: str) -> list[tuple[int, str, str, str]]:
-    """Find the mutable lines in a stage: (line number, kind, original, mutated)."""
     found = []
     for number, text in enumerate(source.splitlines(), start=1):
         stripped = text.strip()
@@ -97,10 +92,9 @@ def _mutations_for(source: str) -> list[tuple[int, str, str, str]]:
 def _stage_result(root: Path, index: int) -> int:
     """Run the generated pipeline and return what it computes.
 
-    Bytecode caching is off. Python invalidates a ``.pyc`` on size and mtime,
-    and two of the mutations here leave the file exactly the same size, so a
-    probe run within the same mtime tick would silently execute the previous
-    version and report the mutation as having no effect.
+    Bytecode caching is off: Python invalidates a .pyc on size and mtime, and
+    two of the mutations below leave the file the same size, so a probe run
+    inside the same mtime tick could silently execute the previous version.
     """
     completed = subprocess.run(
         [
@@ -123,7 +117,6 @@ def _stage_result(root: Path, index: int) -> int:
 
 
 def _pipeline_result(root: Path) -> int:
-    """Run the whole pipeline, from the stage the fixture's test imports."""
     return _stage_result(root, 0)
 
 
@@ -135,11 +128,11 @@ def _rewrite_line(path: Path, line: int, text: str) -> None:
 
 
 def generate_fixture(root: Path, *, depth: int, seed: int) -> Fixture:
-    """Write a working project of ``depth`` stages, and report where it can break.
+    """Write a working ``depth``-stage project, and report where it can break.
 
-    Only sites that actually change the pipeline's output are reported. A
+    Only sites that actually change the pipeline's output are reported — a
     mutation that leaves the result unchanged would inject a bug the fixture's
-    own tests cannot see, and the run would pass while measuring nothing.
+    own test can't see, and a run would pass while measuring nothing.
     """
     if depth < 2:
         raise ValueError("depth must be at least 2 so the bug can sit below the test")
@@ -155,15 +148,14 @@ def generate_fixture(root: Path, *, depth: int, seed: int) -> Fixture:
         )
     (package / f"stage_{depth - 1}.py").write_text(_deepest_stage(rng.randrange(1, 9)))
 
-    # pytest.ini rather than pyproject.toml: a pyproject with no [project] table
-    # is valid for pytest but makes other Python tooling treat the fixture as a
-    # broken package, which is friction the agent under test should not meet.
+    # pytest.ini rather than pyproject.toml: a pyproject.toml with no
+    # [project] table is valid for pytest but reads as a broken package to
+    # other Python tooling — friction the agent under test shouldn't meet.
     (root / "pytest.ini").write_text("[pytest]\npythonpath = src\n")
 
-    # Each stage's threshold is set to the value that actually reaches it, so the
+    # Each threshold is set to the value that actually reaches it, so the
     # comparison sits exactly on its boundary. Left at a random constant the
-    # boundary is never touched, and flipping <= to < changes nothing — one of
-    # the three mutation kinds would silently never be available.
+    # boundary is never touched, and <= -> < changes nothing.
     for index in range(depth - 2, -1, -1):
         module = package / f"stage_{index}.py"
         carried = _stage_result(root, index + 1)
@@ -188,8 +180,8 @@ def test_pipeline_refines_to_its_known_result() -> None:
     )
 
     sites = []
-    # Stage 0 is excluded: the bug has to sit below the module the test imports,
-    # so that finding it means reading past the first file.
+    # Stage 0 excluded: the bug must sit below the module the test imports, so
+    # finding it means reading past the first file.
     for index in range(1, depth - 1):
         module = package / f"stage_{index}.py"
         source = module.read_text()
@@ -212,7 +204,7 @@ def test_pipeline_refines_to_its_known_result() -> None:
 
 
 def inject_bug(fixture: Fixture, *, seed: int) -> MutationSite:
-    """Apply one randomly chosen mutation, and report which one it was."""
+    """Apply one randomly-chosen mutation and report which one it was."""
     if not fixture.sites:
         raise ValueError("fixture has no effective mutation sites")
     site = random.Random(seed).choice(fixture.sites)
@@ -223,9 +215,9 @@ def inject_bug(fixture: Fixture, *, seed: int) -> MutationSite:
 def fixture_fingerprint(root: Path) -> str:
     """Identify which version of a fixture a run was measured on.
 
-    A verdict only means something against the fixture it was measured on. When
-    a fixture is deepened and regenerated, the fingerprint changes, so an old
-    calibration cannot silently appear to still apply.
+    A verdict only means something against the exact fixture it was measured
+    on; when a fixture is deepened and regenerated the fingerprint changes,
+    so an old calibration can't silently appear to still apply.
     """
     digest = hashlib.sha256()
     for path in sorted(root.rglob("*.py")):

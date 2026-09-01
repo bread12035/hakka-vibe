@@ -1,8 +1,8 @@
-"""Decoy tools: noise for experiment 4's tool-surface comparison.
+"""Experiment 4's variable: noise on the tool surface.
 
-The task only ever needs FixerAgent's four real capabilities. These exist
-purely to inflate the tool count, so 4a (all exposed directly) and 4b (all
-deferred behind tool search) have something to actually differ on.
+The fixer's task only ever needs its four real tools. These exist purely to
+inflate the tool count, so 4a (all exposed directly) and 4b (all deferred
+behind tool search) have something to actually differ on.
 """
 
 import random
@@ -16,13 +16,13 @@ _NOUNS = ["invoice", "webhook", "ledger", "snapshot", "quota", "manifest", "repo
 def generate_decoy_tools(*, count: int, seed: int) -> list[ToolParam]:
     """A deterministic set of plausible-sounding, never-called tool definitions."""
     rng = random.Random(seed)
-    names_seen: set[str] = set()
+    seen: set[str] = set()
     tools: list[ToolParam] = []
     while len(tools) < count:
         name = f"{rng.choice(_VERBS)}_{rng.choice(_NOUNS)}"
-        if name in names_seen:
+        if name in seen:
             continue
-        names_seen.add(name)
+        seen.add(name)
         tools.append(
             ToolParam(
                 name=name,

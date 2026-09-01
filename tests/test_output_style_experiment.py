@@ -1,8 +1,4 @@
-"""Output style experiment tests: what's testable without a call.
-
-Which arm maps to which style, and that 5a (no style) reproduces the model's
-default voice rather than an empty-but-present instruction.
-"""
+"""Output style experiment tests: what's testable without a call."""
 
 from hakka_vibe.experiments.output_style import ARMS
 

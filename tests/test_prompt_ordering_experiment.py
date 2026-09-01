@@ -1,7 +1,7 @@
 """Experiment 1a-1e arm configuration tests: what varies per arm, without a call."""
 
 from hakka_vibe.experiments.prompt_ordering import ARMS
-from hakka_vibe.prompt_layout import PromptLayout
+from hakka_vibe.harness.prompt_layout import PromptLayout
 
 
 def test_1a_through_1c_vary_layout_only() -> None:

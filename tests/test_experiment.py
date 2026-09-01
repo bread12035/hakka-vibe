@@ -1,14 +1,16 @@
 """Arm summary tests.
 
 The statistics are pure, so they are pinned down here without spending a call.
-The runner entry that actually executes an arm gets one smoke test and no unit
-tests, because every execution is billable.
+The runner entry that actually executes an arm gets one smoke test and no
+unit tests, because every execution is billable.
 """
 
 from decimal import Decimal
 
-from hakka_vibe.experiment import RUNS_PER_ARM, summarise
-from hakka_vibe.run_record import Call, RunRecord
+import pytest
+
+from hakka_vibe.measurement.run_record import Call, RunRecord
+from hakka_vibe.runner import RUNS_PER_ARM, summarise
 
 
 def record_costing(output_tokens: int, *, passed: bool = True, run: int = 1) -> RunRecord:
@@ -42,8 +44,6 @@ def test_an_arm_reports_its_median_cost() -> None:
 
 
 def test_an_arm_reports_its_spread_alongside_its_median() -> None:
-    # The spread is a result in its own right: an arm whose runs vary by 40%
-    # cannot support a claim that it saves 20%.
     summary = summarise("6a", [record_costing(1_000), record_costing(3_000), record_costing(2_000)])
 
     assert summary.lowest_cost == Decimal("0.025")
@@ -51,8 +51,6 @@ def test_an_arm_reports_its_spread_alongside_its_median() -> None:
 
 
 def test_an_arm_reports_how_many_of_its_runs_passed() -> None:
-    # Cost without the pass count is meaningless: the cheapest arm is the one
-    # that gives up immediately.
     summary = summarise(
         "6a",
         [
@@ -67,9 +65,5 @@ def test_an_arm_reports_how_many_of_its_runs_passed() -> None:
 
 
 def test_an_arm_summary_refuses_a_run_count_it_was_not_designed_for() -> None:
-    # Three runs is what makes a median meaningful here. Summarising two would
-    # report the mean of the pair under the name "median".
-    import pytest
-
     with pytest.raises(ValueError, match=str(RUNS_PER_ARM)):
         summarise("6a", [record_costing(1_000), record_costing(2_000)])

@@ -1,17 +1,15 @@
 """Experiment 2d-2e: pass by reference, run under Claude Code.
 
 Unlike 2a-2c, this harness cannot execute these arms itself — that would mean
-this session spawning another copy of itself to drive. What this module
-provides is everything around that manual step: the materials each arm's
-Claude Code session is started from, and grading the transcript that session
-produces.
+this session spawning another copy of itself to drive. This module provides
+everything around that manual step: the materials each arm's Claude Code
+session starts from, and grading the transcript that session produces.
 
 Operator procedure, once materials are written:
 
 1. Start a fresh Claude Code session for the arm.
 2. Paste ``prompt_2d`` (or ``prompt_2e``) as the first message.
-3. When the session ends, note its transcript path
-   (``~/.claude/projects/<project>/<session-id>.jsonl``).
+3. When the session ends, note its transcript path.
 4. Call ``grade_transcript`` with that path and ``materials.expected``.
 
 Repeat three times per arm, per the spec's run count.
@@ -22,7 +20,6 @@ from pathlib import Path
 
 import pandas as pd
 
-from hakka_vibe.claude_code_adapter import final_assistant_text, run_record_from_transcript
 from hakka_vibe.experiments.pass_by_reference import (
     TopCustomer,
     generate_orders,
@@ -31,7 +28,11 @@ from hakka_vibe.experiments.pass_by_reference import (
     parse_answer,
     top_customer_by_total,
 )
-from hakka_vibe.run_record import RunRecord
+from hakka_vibe.measurement.claude_code_adapter import (
+    final_assistant_text,
+    run_record_from_transcript,
+)
+from hakka_vibe.measurement.run_record import RunRecord
 
 _ANSWER_INSTRUCTION = (
     "When you have the answer, reply with a final line in exactly this form, "

@@ -1,21 +1,20 @@
-"""Turn a Claude Code session transcript into a run record.
+"""The second adapter into RunRecord's seam: a Claude Code session transcript.
 
-The second adapter into RunRecord's seam — the API response is the first — so
-this is what makes it a real seam rather than a hypothetical one. Both report
-usage under the same field names, which is what one parser (token_counts_from_
-usage) serving both depends on.
+Two real adapters — this one and the raw API response every self-built-harness
+agent already produces — are what make RunRecord construction a genuine seam
+rather than a hypothetical one. Both report usage under the same field names,
+which is what lets token_counts_from_usage serve either without a switch.
 
-Claude Code writes cache at the 1 hour TTL exclusively; that is its own
-behaviour, not a setting this project controls, and it is why results from
-this adapter are never compared against the self-built harness's percentages
-(spec, §Harness 與 TTL).
+Claude Code writes cache at a fixed 1 hour TTL — its own behaviour, not
+something this project configures — so results built from this adapter are
+never compared against self-built-harness percentages in the same table.
 """
 
 import json
 from pathlib import Path
 from typing import Any
 
-from hakka_vibe.run_record import Call, RunRecord
+from hakka_vibe.measurement.run_record import Call, RunRecord
 
 
 def _assistant_messages(transcript: Path) -> list[dict[str, Any]]:
@@ -31,21 +30,18 @@ def _assistant_messages(transcript: Path) -> list[dict[str, Any]]:
 
 
 def _assistant_usage_lines(transcript: Path) -> list[dict[str, Any]]:
-    """Read a transcript and return only the messages that carry model usage.
-
-    A Claude Code transcript mixes many line types — user turns, queue
-    operations, system events. Only assistant lines with usage are calls; the
-    rest must be skipped outright, not misread as zero-cost calls.
-    """
+    """Only the assistant messages that carry usage — a transcript also holds
+    user turns and queue events, which must be skipped, not misread as
+    zero-cost calls."""
     return [message for message in _assistant_messages(transcript) if message.get("usage")]
 
 
 def final_assistant_text(transcript: Path) -> str:
     """The text of the last assistant turn that said anything at all.
 
-    A session's final turn is often tool-use only — one last bash call with no
-    prose — so the answer to grade lives on the last turn that actually has
-    text, not necessarily the last turn overall.
+    A session's final turn is often tool-use only (a last bash call with no
+    prose), so the answer to grade lives on the last turn with text, not
+    necessarily the last turn overall.
     """
     for message in reversed(_assistant_messages(transcript)):
         blocks = message.get("content") or []
@@ -60,9 +56,8 @@ def run_record_from_transcript(
 ) -> RunRecord:
     """Build a run record from one Claude Code session transcript.
 
-    One session is one run: the whole transcript's calls become the run's
-    calls, each priced at the model that actually produced it — a session can
-    switch models mid-conversation, confirmed on this project's own history.
+    One session is one run: every call in the transcript becomes a call in
+    the record, each priced at the model that actually produced it.
     """
     messages = _assistant_usage_lines(transcript)
     calls = tuple(Call(model=message["model"], usage=message["usage"]) for message in messages)
